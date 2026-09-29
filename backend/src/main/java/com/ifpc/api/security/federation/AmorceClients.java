@@ -50,6 +50,9 @@ public class AmorceClients {
     private final RegisteredClientRepository clients;
     private final PasswordEncoder encodeurMotDePasse;
 
+    @Value("${federation.issuer:}")
+    private String emetteur;
+
     @Value("${federation.client.id:}")
     private String clientId;
 
@@ -70,6 +73,27 @@ public class AmorceClients {
             log.info("Fédération : aucun client déclaré (FEDERATION_CLIENT_ID vide). "
                     + "Les points d'entrée sont actifs, aucune plateforme n'est autorisée.");
             return;
+        }
+
+        // Dès qu'une plateforme est déclarée, l'émetteur cesse d'être facultatif.
+        //
+        // Sans lui, les URL publiées sont déduites de chaque requête reçue —
+        // donc dictées par l'en-tête Host, et fausses derrière un proxy. Le
+        // partenaire recopierait des adresses qui ne répondent pas, et le
+        // claim « iss » de nos jetons varierait d'une requête à l'autre, ce
+        // que toute bibliothèque OIDC conforme rejette.
+        //
+        // On refuse de démarrer plutôt que de servir une configuration
+        // douteuse : c'est un défaut d'exploitation, il doit se voir ici et
+        // pas chez le partenaire. Même parti pris que JWT_SECRET
+        // (cf. JwtService.verifierSecret).
+        if (emetteur == null || emetteur.isBlank()) {
+            throw new IllegalStateException(
+                    "FEDERATION_ISSUER n'est pas défini alors que la plateforme « " + clientId
+                            + " » est déclarée. Renseigner l'URL publique de ce service "
+                            + "(celle que les partenaires appelleront), sans quoi les jetons "
+                            + "porteraient un émetteur variable et les adresses publiées "
+                            + "seraient fausses.");
         }
         List<String> redirections = decouper(redirectUris);
         if (redirections.isEmpty()) {

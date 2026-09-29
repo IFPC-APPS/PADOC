@@ -35,6 +35,7 @@ class AmorceClientsTest {
 
     private AmorceClients amorce(String id, String secret, String redirections) {
         AmorceClients a = new AmorceClients(clients, encodeur);
+        ReflectionTestUtils.setField(a, "emetteur", "https://padoc.ifpc.eu");
         ReflectionTestUtils.setField(a, "clientId", id);
         ReflectionTestUtils.setField(a, "clientSecret", secret);
         ReflectionTestUtils.setField(a, "clientNom", "Analyse sensorielle");
@@ -54,6 +55,45 @@ class AmorceClientsTest {
     void sansConfigurationRienNEstCree() {
         amorce("", "", "https://exemple.fr/cb").amorcer();
         verify(clients, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("une plateforme déclarée sans émetteur empêche le démarrage")
+    void emetteurObligatoireDesQuUnePlateformeExiste() {
+        // Ce contrôle remplace un bandeau d'avertissement qui prévenait le
+        // lecteur de la documentation que les adresses pouvaient être fausses.
+        // Annoncer à un partenaire que notre service est mal configuré n'est
+        // pas une réponse : le défaut est le nôtre, il doit arrêter le
+        // démarrage, pas s'afficher chez lui.
+        AmorceClients a = new AmorceClients(clients, encodeur);
+        ReflectionTestUtils.setField(a, "emetteur", "");
+        ReflectionTestUtils.setField(a, "clientId", "ciderscope");
+        ReflectionTestUtils.setField(a, "clientSecret", "");
+        ReflectionTestUtils.setField(a, "clientNom", "Ciderscope");
+        ReflectionTestUtils.setField(a, "redirectUris", "https://exemple.fr/cb");
+        ReflectionTestUtils.setField(a, "postLogoutUris", "");
+
+        IllegalStateException erreur = assertThrows(IllegalStateException.class, a::amorcer);
+
+        assertTrue(erreur.getMessage().contains("FEDERATION_ISSUER"),
+                "le message doit dire quoi renseigner");
+        verify(clients, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("sans plateforme déclarée, l'émetteur reste facultatif")
+    void emetteurFacultatifSansPlateforme() {
+        AmorceClients a = new AmorceClients(clients, encodeur);
+        ReflectionTestUtils.setField(a, "emetteur", "");
+        ReflectionTestUtils.setField(a, "clientId", "");
+        ReflectionTestUtils.setField(a, "clientSecret", "");
+        ReflectionTestUtils.setField(a, "clientNom", "");
+        ReflectionTestUtils.setField(a, "redirectUris", "");
+        ReflectionTestUtils.setField(a, "postLogoutUris", "");
+
+        // Un développeur qui lance l'application sans fédération ne doit pas
+        // être bloqué par une variable dont il n'a pas l'usage.
+        assertDoesNotThrow(a::amorcer);
     }
 
     @Test
