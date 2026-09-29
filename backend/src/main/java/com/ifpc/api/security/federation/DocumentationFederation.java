@@ -41,6 +41,7 @@ public class DocumentationFederation {
     public String afficher(HttpServletRequest requete) {
         String racine = racine(requete);
         return GABARIT
+                .replace("{{avertissement}}", emetteurConfigure() ? "" : AVERTISSEMENT_EMETTEUR)
                 .replace("{{racine}}", racine)
                 .replace("{{decouverte}}", racine + "/.well-known/openid-configuration")
                 .replace("{{autorisation}}", racine + reglages.getAuthorizationEndpoint())
@@ -61,12 +62,37 @@ public class DocumentationFederation {
      */
     private String racine(HttpServletRequest requete) {
         String emetteur = reglages.getIssuer();
-        if (emetteur != null && !emetteur.isBlank()) {
+        if (emetteurConfigure()) {
             return emetteur.endsWith("/") ? emetteur.substring(0, emetteur.length() - 1) : emetteur;
         }
         return ServletUriComponentsBuilder.fromRequestUri(requete)
                 .replacePath(null).build().toUriString();
     }
+
+    private boolean emetteurConfigure() {
+        String emetteur = reglages.getIssuer();
+        return emetteur != null && !emetteur.isBlank();
+    }
+
+    /**
+     * Bandeau affiché quand {@code FEDERATION_ISSUER} n'est pas défini.
+     *
+     * <p>Le repli déduit les URL de la requête reçue. Cela suffit en
+     * développement, mais devient trompeur dès que la page est servie derrière
+     * un proxy — elle annonce alors les endpoints sur le domaine du proxy, où
+     * ils n'existent pas. Un intégrateur les recopierait et chercherait
+     * longtemps pourquoi son échange de code répond 404.</p>
+     *
+     * <p>Le dire sur la page plutôt que dans un journal : c'est le lecteur, pas
+     * l'exploitant, qui subit l'erreur.</p>
+     */
+    private static final String AVERTISSEMENT_EMETTEUR = """
+            <div class="note"><p><strong>Instance non configurée —
+            ces adresses sont peut-être fausses.</strong> <code>FEDERATION_ISSUER</code>
+            n'est pas défini sur ce service&nbsp;: les URL ci-dessous sont déduites de
+            l'adresse par laquelle vous êtes arrivé. Derrière un proxy, elles désignent le
+            proxy et non le service qui répond. Faites-les confirmer avant de les
+            reprendre.</p></div>""";
 
     // Page autonome : aucune ressource externe. Elle doit s'afficher même
     // derrière un réseau qui filtre les CDN, et rester lisible dans les deux
@@ -138,6 +164,8 @@ public class DocumentationFederation {
               fournit l'authentification : vos utilisateurs se connectent avec leur compte
               IFPC, vous n'avez pas d'identifiants à créer ni de mots de passe à garder.</p>
             </header>
+
+            {{avertissement}}
 
             <div class="cle">
               <p><strong>Une seule URL à retenir.</strong> Tout le reste s'en déduit

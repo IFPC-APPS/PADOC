@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Pages accessibles sans être connecté
-const PUBLIC_PATHS = ['/', '/login', '/reset-password']
+// Pages accessibles sans être connecté.
+//
+// /federation/documentation est le guide d'intégration destiné aux plateformes
+// partenaires : son lecteur n'a précisément pas de compte IFPC. Sans cette
+// entrée, le middleware le renvoie vers /login — et comme le chemin ne
+// commence pas par /api et ne contient pas de point, il n'atteint jamais la
+// rewrite qui le proxifie vers le Core API.
+const PUBLIC_PATHS = ['/', '/login', '/reset-password', '/federation/documentation']
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value

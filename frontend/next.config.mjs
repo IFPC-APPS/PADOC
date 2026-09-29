@@ -78,6 +78,20 @@ const nextConfig = {
         source: '/api/ldc/:path*',
         destination: `${LDC_URL}/api/ldc/:path*`,
       },
+      // Guide d'intégration de la fédération d'identité, servi par le Core API.
+      // Proxifié pour être lisible sur le domaine public de l'application : on
+      // le transmet à des équipes partenaires, leur donner une URL d'infra
+      // serait fragile.
+      //
+      // Cette page SEULE, et non tout /federation/* : le formulaire de
+      // connexion fédéré dépose un cookie de session, et le parcours OAuth se
+      // poursuit sur l'origine du Core API. Le proxifier déposerait la session
+      // sur le domaine du front, où le point d'autorisation ne la retrouverait
+      // pas — la connexion échouerait sans message clair.
+      {
+        source: '/federation/documentation',
+        destination: `${SPRING_URL}/federation/documentation`,
+      },
       {
         source: '/api/referentiels/:path*',
         destination: `${FASTAPI_URL}/api/referentiels/:path*`,

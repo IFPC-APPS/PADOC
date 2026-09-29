@@ -62,6 +62,29 @@ class DocumentationFederationTest {
     }
 
     @Test
+    @DisplayName("sans émetteur configuré, le lecteur est averti que les adresses sont déduites")
+    void avertissementQuandEmetteurAbsent() {
+        // Derrière un proxy, les URL déduites désignent le proxy et non le
+        // service : un intégrateur les recopierait et chercherait longtemps
+        // pourquoi son échange de code répond 404.
+        String html = page(null);
+
+        assertTrue(html.contains("Instance non configurée"),
+                "le lecteur doit savoir que ces adresses ne font pas foi");
+        assertTrue(html.contains("FEDERATION_ISSUER"),
+                "l'exploitant doit savoir quoi renseigner");
+    }
+
+    @Test
+    @DisplayName("avec un émetteur configuré, aucun avertissement ne s'affiche")
+    void aucunAvertissementQuandEmetteurPresent() {
+        String html = page(EMETTEUR);
+
+        assertFalse(html.contains("Instance non configurée"),
+                "un avertissement permanent finirait par être ignoré");
+    }
+
+    @Test
     @DisplayName("une barre oblique finale sur l'émetteur ne produit pas d'URL doublée")
     void barreObliqueFinaleAbsorbee() {
         String html = page(EMETTEUR + "/");
