@@ -34,6 +34,30 @@ jwt:
   secret: ${JWT_SECRET:}
   expiration: 86400000
 
+# Origines autorisées à appeler l'API (CORS). Plus de « * » : ce service émet
+# des jetons d'identité pour d'autres plateformes.
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+
+# ── Fédération d'identité (spec docs/federation-identite.md) ─────────────────
+# Sans FEDERATION_CLIENT_ID, les points d'entrée OIDC répondent mais aucune
+# plateforme n'est autorisée : un client par défaut dans le dépôt serait un
+# accès public.
+federation:
+  # URL publique du service. C'est le claim « iss » et la racine du JWKS que
+  # les plateformes clientes vérifieront. À définir en production : faute de
+  # quoi elle est déduite de chaque requête, donc dictée par l'en-tête Host.
+  issuer: ${FEDERATION_ISSUER:}
+  client:
+    id: ${FEDERATION_CLIENT_ID:}
+    # Absent ⇒ client public (application de navigateur, PKCE seul).
+    # Présent ⇒ client confidentiel, échange du code de serveur à serveur.
+    secret: ${FEDERATION_CLIENT_SECRET:}
+    nom: ${FEDERATION_CLIENT_NOM:Plateforme partenaire}
+    # Correspondance exacte, séparées par des virgules. Jamais de joker.
+    redirect-uris: ${FEDERATION_CLIENT_REDIRECT_URIS:}
+    post-logout-uris: ${FEDERATION_CLIENT_POST_LOGOUT_URIS:}
+
 resend:
   api-key: ${RESEND_API_KEY:}
   from-email: ${RESEND_FROM_EMAIL:service-informatique@ifpc.eu}

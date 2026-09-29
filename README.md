@@ -219,6 +219,70 @@ idempotente : elle peut être rejouée sans risque.
 
 ---
 
+## Fédération d'identité — « Se connecter avec IFPC »
+
+PADOC est **fournisseur d'identité OpenID Connect** pour les autres outils de la
+filière : un compte créé ici ouvre l'accès aux plateformes partenaires sans y
+recréer d'identifiants. IFPC tient le rôle que tient Google quand un site propose
+« Se connecter avec Google ».
+
+**Le guide d'intégration est servi par l'application elle-même** — c'est le
+document à transmettre à une équipe partenaire, qui n'a ni compte IFPC ni accès à
+ce dépôt :
+
+```
+http://localhost:8080/federation/documentation      # en local
+https://<hôte-de-production>/federation/documentation
+```
+
+Il affiche les **URL réelles de l'instance qui répond**, lues dans sa
+configuration : rien à adapter à la main. Conception et justification des choix :
+[`docs/federation-identite.md`](docs/federation-identite.md).
+
+**Trois propriétés à connaître avant d'exploiter :**
+
+* **Les jetons fédérés sont signés en RS256**, avec une paire de clés propre,
+  conservée en base (`cles_signature`) et publiée au JWKS. Elle n'a rien à voir
+  avec le `JWT_SECRET` HS256 de l'API PADOC, qui reste interne au couple
+  Spring/FastAPI. En HS256, vérifier c'est signer : communiquer ce secret à un
+  partenaire lui donnerait le pouvoir de forger un jeton d'administrateur.
+* **Le `sub` exposé est `users.external_id`** (UUID), jamais l'adresse e-mail —
+  celle-ci change au cours de la vie d'un compte, et une plateforme qui y aurait
+  rattaché ses données locales les perdrait. Cet identifiant **ne doit jamais
+  être modifié** une fois qu'un partenaire s'en sert comme clé.
+* **L'accès est accordé compte par compte.** Sans habilitation, le parcours
+  d'autorisation est refusé avant l'émission du moindre code. Un compte IFPC
+  n'ouvre pas silencieusement l'accès à tout outil qui rejoint la fédération.
+
+**Activation.** Sans `FEDERATION_CLIENT_ID`, la fédération reste en sommeil : les
+points d'entrée répondent, aucune plateforme n'est autorisée — un client déclaré
+par défaut dans le dépôt serait un accès public. Variables dans
+[`.env.example`](.env.example).
+
+```bash
+# Accorder l'accès d'un utilisateur à une plateforme, avec ses rôles CHEZ ELLE
+curl -X PUT "$API/api/admin/federation/utilisateurs/$ID/habilitations/$CLIENT_ID" \
+     -H "Authorization: Bearer $JETON_ADMIN" -H 'Content-Type: application/json' \
+     -d '{"roles":"degustateur,referent"}'
+
+# Retirer l'accès (effet au renouvellement suivant, 10 min au plus)
+curl -X DELETE "$API/api/admin/federation/utilisateurs/$ID/habilitations/$CLIENT_ID" \
+     -H "Authorization: Bearer $JETON_ADMIN"
+
+# Renouveler la clé de signature (l'ancienne reste vérifiable 7 jours)
+curl -X POST "$API/api/admin/federation/cles/rotation" \
+     -H "Authorization: Bearer $JETON_ADMIN"
+```
+
+> **Le rôle IFPC n'est jamais propagé.** `EXPERT` débloque chez nous les
+> paramètres de barème hors référentiel : cela n'a aucun sens sur un autre outil.
+> Les rôles transmis sont ceux de la table `habilitations_plateforme`, dans le
+> vocabulaire de la plateforme destinataire.
+
+
+
+---
+
 ## Licence
 
 Propriétaire — Institut Français des Productions Cidricoles (IFPC)

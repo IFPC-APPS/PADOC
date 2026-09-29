@@ -135,7 +135,12 @@ class SchemaDocumenteTest {
         entites().forEach(e -> tables.add(nomDeTable(e)));
         assertEquals(
                 Set.of("users", "cuves", "lots", "stockages", "operations",
-                        "analysis_history", "audit_log", "help_text"),
+                        "analysis_history", "audit_log", "help_text",
+                        // Fédération d'identité (docs/federation-identite.md).
+                        // Les tables oauth2_* n'y figurent pas : elles ne sont
+                        // pas des entités JPA, le serveur d'autorisation les
+                        // gère en JDBC direct.
+                        "habilitations_plateforme", "cles_signature"),
                 tables,
                 "une entité a été ajoutée ou retirée : mettre à jour docs/schema.sql et ce test");
     }

@@ -38,9 +38,21 @@
 -- ---------------------------------------------------------------------------
 -- Le rôle PENDING est l'état d'un compte créé mais pas encore approuvé par un
 -- administrateur ; il ne donne accès à rien.
+--
+-- external_id est le « sub » des jetons OpenID Connect émis aux plateformes
+-- fédérées (docs/federation-identite.md §7.1). Il est tiré à la création et
+-- n'est JAMAIS modifié : une plateforme cliente y rattache ses comptes locaux,
+-- et le changer casserait ces rattachements sans migration coordonnée. L'e-mail
+-- ne pouvait pas tenir ce rôle — il change au cours de la vie d'un compte.
+--
+-- Le DEFAULT permet d'ajouter cette colonne NOT NULL à une table déjà peuplée :
+-- PostgreSQL évalue gen_random_uuid() par ligne, chaque compte existant reçoit
+-- donc un identifiant distinct au moment de l'ALTER (cf. l'avertissement en
+-- tête de ce fichier).
 
 CREATE TABLE users (
     id                          BIGSERIAL       PRIMARY KEY,
+    external_id                 VARCHAR(36)     NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
     first_name                  VARCHAR(255),
     last_name                   VARCHAR(255),
     company_name                VARCHAR(255),
@@ -210,3 +222,91 @@ CREATE TABLE help_text (
     content         TEXT             NOT NULL,
     updated_at      TIMESTAMP
 );
+
+
+-- =============================================================================
+-- FÉDÉRATION D'IDENTITÉ
+-- =============================================================================
+-- IFPC est fournisseur d'identité OpenID Connect pour d'autres plateformes :
+-- un compte créé ici ouvre l'accès à des outils partenaires sans y recréer
+-- d'identifiants. Spécification : docs/federation-identite.md.
+
+
+-- ---------------------------------------------------------------------------
+-- TABLE : habilitations_plateforme (qui accède à quelle plateforme fédérée)
+-- ---------------------------------------------------------------------------
+-- Le rôle IFPC (users.role) n'est jamais propagé aux plateformes fédérées : il
+-- n'a de sens que sur PADOC — EXPERT y débloque les paramètres de barème hors
+-- référentiel, ce qui ne veut rien dire ailleurs. Chaque plateforme a donc ses
+-- propres rôles, ici (§7.2).
+--
+-- roles est du texte libre séparé par des virgules, et non un enum : ce
+-- vocabulaire appartient à la plateforme cliente. Le figer imposerait de
+-- redéployer le fournisseur d'identité à chaque rôle inventé par un partenaire.
+--
+-- Absence de ligne = absence d'accès. Le parcours d'autorisation est refusé
+-- avant l'émission de tout code : un compte IFPC n'ouvre pas silencieusement
+-- l'accès à tout outil qui rejoint la fédération.
+
+CREATE TABLE habilitations_plateforme (
+    id              BIGSERIAL        PRIMARY KEY,
+    utilisateur_id  BIGINT           NOT NULL REFERENCES users(id),
+    client_id       VARCHAR(100)     NOT NULL,   -- client_id OAuth de la plateforme
+    roles           VARCHAR(500)     NOT NULL,   -- rôles côté plateforme, séparés par des virgules
+    accorde_le      TIMESTAMP        NOT NULL,
+    accorde_par     VARCHAR(255),                -- adresse de l'administrateur, pour l'audit
+    CONSTRAINT uk_habilitation_utilisateur_client UNIQUE (utilisateur_id, client_id)
+);
+
+
+-- ---------------------------------------------------------------------------
+-- TABLE : cles_signature (clés RSA de signature des jetons fédérés)
+-- ---------------------------------------------------------------------------
+-- Les jetons fédérés sont signés en RS256, pas avec le secret HS256 partagé
+-- entre le Core API et le Calc Engine. En HS256, vérifier c'est signer :
+-- communiquer ce secret à un partenaire lui donnerait le pouvoir de forger un
+-- jeton d'administrateur IFPC (§4). Ici, seule la clé publique sort, au JWKS.
+--
+-- En base et non en mémoire : une clé tirée au démarrage changerait à chaque
+-- redéploiement — tous les jetons de rafraîchissement en cours deviendraient
+-- invérifiables — et deux instances signeraient avec des clés différentes.
+--
+-- La clé privée n'est pas chiffrée : il faudrait un second secret, détenu au
+-- même endroit. La base est déjà dans la même frontière de confiance que
+-- l'application, qui y lit aussi les empreintes de mots de passe.
+--
+-- Plusieurs clés coexistent pour la rotation : la plus récente non retirée
+-- signe, toutes les non expirées restent publiées le temps que les jetons émis
+-- avec l'ancienne expirent et que les caches clients se rafraîchissent.
+
+CREATE TABLE cles_signature (
+    kid             VARCHAR(64)      PRIMARY KEY,   -- identifiant publié au JWKS
+    cle_publique    VARCHAR(4000)    NOT NULL,      -- X.509, base64
+    cle_privee      VARCHAR(8000)    NOT NULL,      -- PKCS#8, base64
+    creee_le        TIMESTAMP        NOT NULL,
+    retiree_le      TIMESTAMP                       -- NULL = clé active (elle signe)
+);
+
+
+-- ---------------------------------------------------------------------------
+-- TABLES : oauth2_* (Spring Authorization Server)
+-- ---------------------------------------------------------------------------
+-- Ces trois tables ne sont pas des entités JPA : les dépôts JDBC du serveur
+-- d'autorisation les lisent et les écrivent directement, et Hibernate les
+-- ignore. Elles sont donc créées explicitement au démarrage
+-- (com.ifpc.api.security.federation.SchemaFederation), et SchemaDocumenteTest
+-- ne les vérifie pas.
+--
+-- Le schéma est celui livré dans le jar de Spring Authorization Server, avec
+-- les deux adaptations que le fichier amont demande pour PostgreSQL : « blob »
+-- devient « text » (PostgreSQL n'a pas de blob) et « timestamp » devient
+-- « timestamptz », sans quoi les instants se décalent.
+--
+--   oauth2_registered_client     les plateformes déclarées (client_id, URI de
+--                                redirection exactes, portées, durées de vie)
+--   oauth2_authorization         codes, jetons d'accès et de rafraîchissement
+--                                en cours
+--   oauth2_authorization_consent les consentements accordés par utilisateur
+--                                et par plateforme
+--
+-- Voir SchemaFederation pour leur définition exacte.

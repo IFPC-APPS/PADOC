@@ -47,6 +47,16 @@ services:
       PADOC_ADMIN_PASSWORD: ${PADOC_ADMIN_PASSWORD:-}
       # Héritier des données antérieures au cloisonnement multi-tenant
       PADOC_LEGACY_OWNER_EMAIL: ${PADOC_LEGACY_OWNER_EMAIL:-admin@ifpc.com}
+      # Fédération d'identité (spec docs/federation-identite.md). Sans
+      # FEDERATION_CLIENT_ID, les points d'entrée OIDC répondent mais aucune
+      # plateforme n'est autorisée.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      FEDERATION_ISSUER: ${FEDERATION_ISSUER:-http://localhost:8080}
+      FEDERATION_CLIENT_ID: ${FEDERATION_CLIENT_ID:-}
+      FEDERATION_CLIENT_NOM: ${FEDERATION_CLIENT_NOM:-Analyse sensorielle}
+      FEDERATION_CLIENT_SECRET: ${FEDERATION_CLIENT_SECRET:-}
+      FEDERATION_CLIENT_REDIRECT_URIS: ${FEDERATION_CLIENT_REDIRECT_URIS:-}
+      FEDERATION_CLIENT_POST_LOGOUT_URIS: ${FEDERATION_CLIENT_POST_LOGOUT_URIS:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-service-informatique@ifpc.eu}
       RESEND_ADMIN_EMAIL: ${RESEND_ADMIN_EMAIL:-service-informatique@ifpc.eu}

@@ -1,6 +1,8 @@
 package com.ifpc.api.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -30,7 +32,19 @@ public class SecurityConfiguration {
     private final AuthDebugFilter authDebugFilter;
     private final AuthenticationProvider authenticationProvider;
 
+    /**
+     * L'API métier — dernière chaîne, sans sélecteur, donc celle qui reçoit tout
+     * ce que les précédentes n'ont pas pris.
+     *
+     * <p>L'ordre compte : le serveur d'autorisation (chaîne 1) et le formulaire
+     * de connexion fédéré (chaîne 2) ont besoin d'une session, là où cette
+     * chaîne-ci est volontairement sans état. Sans {@code @Order}, celle-ci
+     * pourrait passer devant et appliquer sa politique {@code STATELESS} au
+     * parcours OAuth, qui cesserait alors de fonctionner — l'utilisateur
+     * reviendrait du formulaire de connexion sans être reconnu.</p>
+     */
     @Bean
+    @Order(3)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -61,10 +75,26 @@ public class SecurityConfiguration {
         return http.build();
     }
 
+    /**
+     * Origines autorisées, en liste explicite.
+     *
+     * <p>{@code CORS_ALLOWED_ORIGINS} reçoit les origines séparées par des
+     * virgules. Non renseignée, la valeur retombe sur les origines de
+     * développement — et surtout plus sur {@code "*"} : ce service émet
+     * désormais des jetons d'identité pour d'autres plateformes, et une origine
+     * quelconque ne doit pas pouvoir lui adresser de requête créditée
+     * (spec fédération §9).</p>
+     */
+    @Value("${cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+    private String originesAutorisees;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));
+        configuration.setAllowedOrigins(Arrays.stream(originesAutorisees.split(","))
+                .map(String::trim)
+                .filter(origine -> !origine.isEmpty())
+                .toList());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(Arrays.asList(

@@ -2,6 +2,7 @@ package com.ifpc.api.config;
 
 import com.ifpc.api.models.User;
 import com.ifpc.api.repositories.UserRepository;
+import com.ifpc.api.security.federation.AmorceClients;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,7 @@ class DatabaseSeederTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JdbcTemplate jdbcTemplate;
+    @Mock private AmorceClients amorceClients;
 
     @Test
     @DisplayName("seedDatabase répare le schéma et crée le compte admin quand la base est vide")
@@ -37,7 +39,8 @@ class DatabaseSeederTest {
         CommandLineRunner runner = seeder.seedDatabase(
                 userRepository,
                 passwordEncoder,
-                jdbcTemplate
+                jdbcTemplate,
+                amorceClients
         );
 
         runner.run();
@@ -63,7 +66,8 @@ class DatabaseSeederTest {
         CommandLineRunner runner = seeder.seedDatabase(
                 userRepository,
                 passwordEncoder,
-                jdbcTemplate
+                jdbcTemplate,
+                amorceClients
         );
 
         runner.run();

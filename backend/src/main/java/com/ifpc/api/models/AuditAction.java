@@ -21,4 +21,13 @@ public enum AuditAction {
 
     /** Un compte a été supprimé. Ses données restent rattachées à son adresse. */
     COMPTE_SUPPRIME,
+
+    /** L'accès d'un utilisateur à une plateforme fédérée a été accordé ou modifié. */
+    HABILITATION_ACCORDEE,
+
+    /** L'accès d'un utilisateur à une plateforme fédérée a été retiré. */
+    HABILITATION_RETIREE,
+
+    /** La clé de signature des jetons fédérés a été renouvelée. */
+    CLE_FEDERATION_TOURNEE,
 }

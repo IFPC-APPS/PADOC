@@ -3,6 +3,7 @@ package com.ifpc.api.config;
 import com.ifpc.api.models.Role;
 import com.ifpc.api.models.User;
 import com.ifpc.api.repositories.UserRepository;
+import com.ifpc.api.security.federation.AmorceClients;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -20,12 +21,18 @@ public class DatabaseSeeder {
     public CommandLineRunner seedDatabase(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JdbcTemplate jdbcTemplate
+            JdbcTemplate jdbcTemplate,
+            AmorceClients amorceClients
     ) {
         return args -> {
             repairCuvesSchema(jdbcTemplate);
             repairLotsSchema(jdbcTemplate);
             repairTenantSchema(jdbcTemplate);
+            // Avant toute utilisation de UserRepository : la colonne
+            // « external_id » fait désormais partie de l'entité, donc de chaque
+            // SELECT que JPA émet. Tant qu'elle n'existe pas en base, la
+            // moindre lecture échoue.
+            repairFederationSchema(jdbcTemplate);
 
             // Création de l'admin par défaut s'il n'existe pas.
             // Le mot de passe n'est JAMAIS écrit dans le dépôt : il vient de
@@ -54,7 +61,38 @@ public class DatabaseSeeder {
                 System.out.println("===============================");
             }
 
+            amorceClients.amorcer();
         };
+    }
+
+    // ── Fédération d'identité ────────────────────────────────────────────────
+    /**
+     * Donne un identifiant externe aux comptes qui préexistent à la fédération.
+     *
+     * <p>Hibernate ne peut pas ajouter seul cette colonne : elle est
+     * {@code NOT NULL} et la table porte déjà des lignes, donc l'{@code ALTER}
+     * qu'il tenterait échouerait. On procède dans l'ordre qui marche — colonne
+     * facultative, remplissage, puis contraintes.</p>
+     *
+     * <p>C'est l'étape la plus irréversible de la fédération : dès qu'une
+     * plateforme cliente a rattaché ses comptes locaux à un {@code sub}, ces
+     * valeurs ne peuvent plus changer sans casser ses rattachements
+     * (spec fédération §7.1). D'où le {@code WHERE external_id IS NULL} : un
+     * identifiant déjà attribué n'est jamais réécrit, même si cette méthode
+     * est rejouée.</p>
+     */
+    private void repairFederationSchema(JdbcTemplate jdbcTemplate) {
+        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id varchar(36)");
+
+        // gen_random_uuid() est fourni en standard depuis PostgreSQL 13.
+        jdbcTemplate.execute(
+                "UPDATE users SET external_id = gen_random_uuid()::text WHERE external_id IS NULL");
+
+        // Unicité avant NOT NULL : si un doublon existait, mieux vaut échouer
+        // ici, sur une base encore sans client fédéré, que plus tard.
+        jdbcTemplate.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uk_users_external_id ON users (external_id)");
+        jdbcTemplate.execute("ALTER TABLE users ALTER COLUMN external_id SET NOT NULL");
     }
 
     // ── Cloisonnement multi-locataire ────────────────────────────────────────
