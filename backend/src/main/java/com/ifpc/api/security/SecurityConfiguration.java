@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import jakarta.servlet.DispatcherType;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -76,25 +77,52 @@ public class SecurityConfiguration {
     }
 
     /**
-     * Origines autorisées, en liste explicite.
+     * Origines autorisées. Restriction <b>facultative</b>, et c'est délibéré.
      *
-     * <p>{@code CORS_ALLOWED_ORIGINS} reçoit les origines séparées par des
-     * virgules. Non renseignée, la valeur retombe sur les origines de
-     * développement — et surtout plus sur {@code "*"} : ce service émet
-     * désormais des jetons d'identité pour d'autres plateformes, et une origine
-     * quelconque ne doit pas pouvoir lui adresser de requête créditée
-     * (spec fédération §9).</p>
+     * <p>{@code CORS_ALLOWED_ORIGINS} reçoit des origines séparées par des
+     * virgules. <b>Non renseignée, toutes les origines sont acceptées.</b></p>
+     *
+     * <p><b>Pourquoi ce défaut permissif.</b> Une version antérieure faisait
+     * l'inverse : à défaut de variable, elle retombait sur les origines de
+     * développement. Le 30/09/2026, cela a coupé l'authentification en
+     * production pendant des heures. Le raisonnement qui avait conduit à ce
+     * défaut était faux : on croyait le CORS sans effet parce que le frontend
+     * appelle l'API en relatif et que Next relaie côté serveur — mais le relais
+     * <b>retransmet l'en-tête {@code Origin} du navigateur</b>, que Spring
+     * évalue donc bel et bien. Résultat : 403 sur {@code POST /api/auth/login},
+     * et seulement sur les POST, puisque les navigateurs n'envoient pas
+     * {@code Origin} sur un GET de même origine.</p>
+     *
+     * <p><b>Pourquoi c'est acceptable.</b> Cette API s'authentifie par jeton
+     * porté dans l'en-tête {@code Authorization}, jamais par cookie. Sans
+     * {@code allowCredentials}, une origine tierce peut émettre une requête
+     * mais ne peut pas y joindre le jeton de la victime, qu'elle n'a aucun
+     * moyen de lire. Le caractère « ouvert » ne donne donc accès à rien de
+     * plus qu'un appel non authentifié — ce que n'importe quel client HTTP
+     * peut déjà faire.</p>
+     *
+     * <p>Restreindre reste souhaitable et se fait en une variable. Mais la
+     * restriction doit être un choix explicite, pas un effet de bord d'un
+     * oubli de configuration : un service en production ne doit pas cesser de
+     * fonctionner parce qu'une variable facultative manque.</p>
      */
-    @Value("${cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000}")
+    @Value("${cors.allowed-origins:}")
     private String originesAutorisees;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.stream(originesAutorisees.split(","))
+
+        List<String> origines = Arrays.stream(originesAutorisees.split(","))
                 .map(String::trim)
                 .filter(origine -> !origine.isEmpty())
-                .toList());
+                .toList();
+
+        if (origines.isEmpty()) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            configuration.setAllowedOrigins(origines);
+        }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(Arrays.asList(

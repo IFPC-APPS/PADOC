@@ -34,10 +34,18 @@ jwt:
   secret: ${JWT_SECRET:}
   expiration: 86400000
 
-# Origines autorisées à appeler l'API (CORS). Plus de « * » : ce service émet
-# des jetons d'identité pour d'autres plateformes.
+# Origines autorisées à appeler l'API (CORS), séparées par des virgules.
+#
+# VIDE PAR DÉFAUT, ET C'EST VOULU : à défaut de valeur, toutes les origines
+# sont acceptées. Un défaut restreint avait coupé l'authentification en
+# production le 30/09/2026, la variable n'étant pas définie sur le serveur.
+# Voir SecurityConfiguration pour le raisonnement complet — en résumé, l'API
+# s'authentifie par jeton d'en-tête et non par cookie, donc une origine tierce
+# ne peut rien obtenir de plus qu'un appel anonyme.
+#
+# Restreindre reste souhaitable, mais doit être un choix explicite.
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 # ── Fédération d'identité (spec docs/federation-identite.md) ─────────────────
 # Sans FEDERATION_CLIENT_ID, les points d'entrée OIDC répondent mais aucune
