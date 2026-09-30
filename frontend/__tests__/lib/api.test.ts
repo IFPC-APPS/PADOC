@@ -2,8 +2,11 @@ import * as api from '@/lib/api';
 import axios from 'axios';
 
 jest.mock('axios', () => {
-  const mAxios = {
-    create: jest.fn(() => mAxios),
+  // Annotation explicite : `create` renvoie `mAxios`, qui se référence donc
+  // lui-même. Sans type déclaré, TypeScript ne peut pas l'inférer et échoue
+  // en TS7022/TS7024 — ce qui rendait `tsc --noEmit` inutilisable en CI.
+  const mAxios: Record<string, unknown> = {
+    create: jest.fn((): Record<string, unknown> => mAxios),
     interceptors: {
       request: { use: jest.fn(), eject: jest.fn() },
       response: { use: jest.fn(), eject: jest.fn() },
