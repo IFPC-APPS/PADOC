@@ -1,0 +1,42 @@
+# Déploiement Railway du Core API.
+#
+# Pourquoi ce fichier existe
+# --------------------------
+# Le 29/09/2026, un déploiement a laissé les utilisateurs sans connexion et il a
+# fallu revenir en arrière à la main, près de trois heures plus tard. Le journal
+# du conteneur montre pourtant un démarrage propre en 4,5 s, sans une seule
+# erreur : l'application allait bien.
+#
+# Sans healthcheck, Railway bascule le trafic dès que le conteneur démarre — pas
+# quand l'application est prête à répondre. Deux conséquences :
+#
+#   1. chaque déploiement ouvre une fenêtre de quelques secondes pendant
+#      laquelle les requêtes tombent sur un service qui n'écoute pas encore ;
+#   2. surtout, un déploiement cassé remplace quand même celui qui
+#      fonctionnait. C'est ce qui impose un retour arrière manuel.
+#
+# Avec un healthcheck, Railway attend une réponse avant de basculer, et
+# conserve l'ancienne version si la nouvelle ne répond pas.
+
+# Volontairement PAS de section [build] : la construction de l'image fonctionne
+# déjà telle qu'elle est configurée dans le tableau de bord. La redéclarer ici
+# risquerait de changer le répertoire racine ou le chemin du Dockerfile, donc
+# de casser ce qui marche — pour un fichier censé fiabiliser les déploiements,
+# ce serait un comble.
+
+[deploy]
+# Route publique et sans authentification (cf. SecurityConfiguration, où
+# /api/deploy/** est explicitement permitAll). Elle traverse le contexte Spring
+# complet : une application qui répond ici a réellement fini de démarrer.
+healthcheckPath = "/api/deploy/info"
+
+# Démarrage mesuré à 4,5 s sur cette instance. 120 s laissent la marge d'une
+# base lente à répondre ou d'une migration de schéma un peu longue, sans faire
+# attendre inutilement en cas d'échec franc.
+healthcheckTimeout = 120
+
+# Ne pas redémarrer indéfiniment une image qui ne peut pas démarrer : au bout
+# de trois tentatives, l'échec doit être visible plutôt que masqué par une
+# boucle.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
