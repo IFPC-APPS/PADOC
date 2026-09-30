@@ -98,7 +98,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 20 est en fin de vie depuis avril 2026. Version alignée sur
+          # ce que npm résout de façon stable : c'est npm 10 qui a révélé que
+          # le lockfile était incomplet, là où npm 11 comblait le trou en
+          # silence.
+          node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
