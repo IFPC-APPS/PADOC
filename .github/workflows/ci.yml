@@ -34,10 +34,15 @@ concurrency:
 permissions:
   contents: read
 
+# Version épinglée plutôt que « ubuntu-latest » : GitHub a annoncé la bascule
+# de ce label vers Ubuntu 26 au 19/10/2026. Un changement d'image sous les
+# pieds d'une CI se manifeste par des échecs sans rapport avec le code, au
+# pire moment. On suivra la migration délibérément.
+
 jobs:
   core-api:
     name: Core API (Spring Boot, 289 tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +70,7 @@ jobs:
 
   calc-engine:
     name: Calc Engine (FastAPI, 329 tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -87,7 +92,7 @@ jobs:
 
   frontend:
     name: Frontend (Next.js, 133 tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -120,7 +125,7 @@ jobs:
   # retoucher aux réglages du dépôt.
   verdict:
     name: Verdict
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [core-api, calc-engine, frontend]
     if: always()
     steps:
