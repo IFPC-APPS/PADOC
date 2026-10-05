@@ -50,7 +50,11 @@ services:
       # Fédération d'identité (spec docs/federation-identite.md). Sans
       # FEDERATION_CLIENT_ID, les points d'entrée OIDC répondent mais aucune
       # plateforme n'est autorisée.
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      # Pas de valeur de repli : « ${VAR:-défaut} » s'applique aussi quand la
+      # variable est VIDE, pas seulement absente. Un défaut restreint ici
+      # réintroduisait la panne du 30/09 alors même que le code était corrigé —
+      # le même mauvais défaut vivait dans trois couches.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       FEDERATION_ISSUER: ${FEDERATION_ISSUER:-http://localhost:8080}
       FEDERATION_CLIENT_ID: ${FEDERATION_CLIENT_ID:-}
       FEDERATION_CLIENT_NOM: ${FEDERATION_CLIENT_NOM:-Analyse sensorielle}
@@ -106,6 +110,14 @@ services:
         SPRING_URL: http://api:8080
         FASTAPI_URL: http://calc:8000
     container_name: padoc-frontend
+    environment:
+      # Docker renseigne HOSTNAME avec l'identifiant du conteneur, et le
+      # serveur « standalone » de Next s'en sert comme adresse d'écoute : il
+      # n'écoutait donc que sur l'IP du conteneur, pas sur localhost. La sonde
+      # de santé, qui interroge localhost, le déclarait en panne alors que le
+      # service répondait — un faux négatif qui provoque des redémarrages en
+      # boucle.
+      HOSTNAME: "0.0.0.0"
     ports:
       - "3000:3000"
     depends_on:
@@ -114,7 +126,10 @@ services:
       calc:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1"]
+      # 127.0.0.1 et non « localhost » : /etc/hosts du conteneur fait pointer
+      # localhost vers ::1 en premier, or le serveur Next n'écoute qu'en IPv4.
+      # La sonde échouait donc alors que le service répondait parfaitement.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 6
