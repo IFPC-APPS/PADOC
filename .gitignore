@@ -14,3 +14,13 @@ Thumbs.db
 
 # ── Rapport de stage : documents de travail, hors périmètre du code ──────────
 rapport\ /
+
+# ── Dépôt distinct, présent ici par commodité seulement ──────────────────────
+# ciderscope est un projet séparé, avec son propre dépôt et son propre remote
+# (github.com/Lucas-semaan/ciderscope). Il ne doit JAMAIS être poussé sur le
+# dépôt IFPC du seul fait qu'il partage ce répertoire local.
+#
+# Sans cette ligne, « git add . » l'ajouterait comme lien de sous-module cassé :
+# un pointeur vers un commit que ce dépôt ne contient pas, invisible à la
+# relecture et impossible à cloner pour quelqu'un d'autre.
+/ciderscope/
