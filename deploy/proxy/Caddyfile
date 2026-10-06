@@ -1,0 +1,77 @@
+# Point d'entrée unique de la VM.
+#
+# Pourquoi un reverse proxy plutôt que d'exposer chaque application
+# ----------------------------------------------------------------
+# Sans lui, il faudrait demander à l'infrastructure l'ouverture d'un port par
+# application — 3000, 3001, et un de plus à chaque nouveau service. Avec lui,
+# une seule demande : le 443. Les conteneurs n'ont plus besoin d'être joignables
+# depuis l'extérieur du tout.
+#
+# Caddy atteint les applications par leur nom de conteneur sur le réseau Docker
+# de PADOC. Aucun port publié sur l'hôte n'est nécessaire pour cela.
+
+{
+	# ÉTAPE ACTUELLE : les ports 80 et 443 sont filtrés par le réseau INRAE.
+	# Caddy ne peut donc pas obtenir de certificat — la validation Let's Encrypt
+	# exige d'être joignable depuis Internet. On sert en clair, le temps de la
+	# mise au point.
+	#
+	# LE JOUR OÙ LE 443 SERA OUVERT : supprimer cette ligne et les deux
+	# préfixes « http:// » ci-dessous. Caddy obtiendra et renouvellera les
+	# certificats tout seul. C'est la seule modification à faire.
+	auto_https off
+
+	# Adresse à laquelle Let's Encrypt signalera une expiration imminente.
+	email service-informatique@ifpc.eu
+}
+
+# ── PADOC ────────────────────────────────────────────────────────────────────
+http://padoc.ifpc.eu {
+	reverse_proxy padoc-frontend:3000
+
+	encode gzip zstd
+
+	header {
+		# En-têtes de sécurité usuels. Strict-Transport-Security est
+		# volontairement absent tant qu'on sert en clair : l'ajouter
+		# maintenant forcerait les navigateurs vers une adresse HTTPS qui ne
+		# répond pas, et le réglage est mémorisé pour des mois.
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/padoc.log
+		format console
+	}
+}
+
+# ── CiderScope ───────────────────────────────────────────────────────────────
+# Application distincte, dépôt distinct, mais même point d'entrée : c'est le
+# nom de domaine qui aiguille, pas le port.
+http://ciderscope.ifpc.eu {
+	reverse_proxy ciderscope-app:3000
+
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/ciderscope.log
+		format console
+	}
+}
+
+# ── Appel direct par l'adresse IP ────────────────────────────────────────────
+# Utile tant que le DNS ne pointe pas encore ici : permet de vérifier que le
+# proxy fonctionne, sans dépendre d'un enregistrement.
+http:// {
+	respond "Proxy IFPC en service. Utiliser padoc.ifpc.eu ou ciderscope.ifpc.eu." 200
+}

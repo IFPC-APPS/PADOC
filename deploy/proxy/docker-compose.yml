@@ -1,0 +1,51 @@
+# Reverse proxy de la VM : un seul point d'entrée pour toutes les applications.
+#
+# Compose distinct de celui de PADOC et de celui de CiderScope : le proxy sert
+# les deux, il ne peut appartenir ni à l'un ni à l'autre. Le redémarrer ne doit
+# redémarrer aucune application, et inversement.
+#
+#   docker compose up -d        démarrage
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+#                               rechargement à chaud, sans coupure
+
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ifpc-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3. Inoffensif si le réseau ne laisse pas passer l'UDP.
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificats et clés de compte ACME. Sans ce volume, Caddy en
+      # redemanderait à chaque redémarrage et se ferait limiter par
+      # Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - padoc
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+
+networks:
+  # Réseau créé par le compose de PADOC. CiderScope y est également rattaché :
+  # c'est par lui que le proxy atteint les deux applications, par leur nom de
+  # conteneur et sans qu'aucun port n'ait besoin d'être publié sur l'hôte.
+  padoc:
+    external: true
+    name: padoc_default
