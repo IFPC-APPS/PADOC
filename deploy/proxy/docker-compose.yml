@@ -35,7 +35,22 @@ services:
       start_period: 15s
     restart: unless-stopped
     networks:
-      - padoc
+      padoc:
+        # Les noms publics résolus À L'INTÉRIEUR du réseau Docker.
+        #
+        # Sans cela, un appel de serveur à serveur part sur le DNS public —
+        # et « ifpc.eu » porte un enregistrement GÉNÉRIQUE : padoc.ifpc.eu
+        # résout vers le site institutionnel (194.206.126.204), qui répond 404.
+        # CiderScope échouait ainsi sur « Découverte PADOC indisponible », en
+        # interrogeant un serveur étranger au projet.
+        #
+        # OpenID Connect impose que l'émetteur soit annoncé et vérifié sous une
+        # seule et même adresse : on ne peut donc pas donner une URL interne
+        # distincte aux appels de serveur à serveur. Il faut que ce nom-là
+        # désigne le proxy des deux côtés, et c'est ce que fait cet alias.
+        aliases:
+          - padoc.ifpc.eu
+          - ciderscope.ifpc.eu
 
 volumes:
   caddy_data:
