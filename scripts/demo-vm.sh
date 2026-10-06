@@ -25,6 +25,11 @@ P_PADOC="${P_PADOC:-8080}"
 P_CIDER="${P_CIDER:-8081}"
 P_PROXY="${P_PROXY:-8000}"
 
+# Relevé AVANT toute boucle : la vérification des ports ci-dessous utilise
+# « set -- » pour découper ses couples, ce qui écrase les paramètres de
+# position. L'option était donc perdue avant d'être lue.
+OPTION="${1:-}"
+
 libre() {
   ! (cat < /dev/null > "/dev/tcp/127.0.0.1/$1") 2>/dev/null
 }
@@ -60,7 +65,7 @@ cat <<FIN
 
 FIN
 
-if [ "${1:-}" = "--domaines" ]; then
+if [ "$OPTION" = "--domaines" ]; then
   cat <<FIN
   Pour montrer les vrais noms de domaine plutôt que « localhost »,
   ajouter cette ligne à /etc/hosts (sudo requis), puis ouvrir
@@ -68,8 +73,27 @@ if [ "${1:-}" = "--domaines" ]; then
 
       127.0.0.1  padoc.ifpc.eu ciderscope.ifpc.eu
 
-  À retirer après la démonstration, sinon ces noms resteront
-  détournés vers cette machine une fois le site réellement en ligne.
+  À retirer après la démonstration — en une fois, la ligne a tendance
+  à se dupliquer :
+
+      sudo sed -i '/padoc\\.ifpc\\.eu/d' /etc/hosts
+
+  Sinon ces noms resteront détournés vers cette machine une fois le
+  site réellement en ligne.
+
+  ⚠️  POUR DÉMONTRER LA FÉDÉRATION, ce tunnel ne suffit pas.
+  OpenID Connect fait voyager le navigateur : il est renvoyé vers
+  l'émetteur, qui doit donc répondre à l'adresse EXACTE annoncée —
+  port compris. Avec le proxy sur un port local autre que 80, les
+  redirections ne retombent pas sur leurs pieds.
+
+  Il faut alors prendre le port 80 en local, ce qui demande sudo :
+
+      sudo ssh -i $HOME/.ssh/id_ed25519 -N \\
+        -o ExitOnForwardFailure=yes \\
+        -L 80:localhost:80 $VM
+
+  puis ouvrir http://padoc.ifpc.eu, sans port.
 
 FIN
 fi

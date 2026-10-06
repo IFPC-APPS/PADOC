@@ -27,7 +27,31 @@
 
 # ── PADOC ────────────────────────────────────────────────────────────────────
 http://padoc.ifpc.eu {
-	reverse_proxy padoc-frontend:3000
+	# ── Serveur d'autorisation (fédération d'identité) ───────────────────
+	# OpenID Connect fait voyager le NAVIGATEUR : il est redirigé vers
+	# /oauth2/authorize, puis la plateforme cliente appelle /oauth2/token et
+	# /oauth2/jwks. Ces routes doivent donc être joignables sous le même nom
+	# public que le reste, et non sur le port 8080 de la machine — port
+	# filtré, qu'aucun navigateur extérieur n'atteindra jamais.
+	#
+	# C'est ce qui manquait pour que la fédération soit démontrable : tout
+	# fonctionnait côté serveur, mais l'émetteur s'annonçait sous une adresse
+	# que personne ne pouvait suivre.
+	#
+	# Ces chemins appartiennent à Spring Authorization Server et ne doivent
+	# pas être servis par Next : ils passent donc AVANT la règle générale.
+	# Deux « handle » plutôt qu'un « handle » et une directive libre : les
+	# blocs handle sont mutuellement exclusifs et évalués dans l'ordre, ce qui
+	# rend l'aiguillage explicite. Mélanger les deux formes laisse l'ordre à
+	# l'appréciation de Caddy.
+	@federation path /oauth2/* /.well-known/* /userinfo /connect/* /federation/*
+	handle @federation {
+		reverse_proxy padoc-api:8080
+	}
+
+	handle {
+		reverse_proxy padoc-frontend:3000
+	}
 
 	encode gzip zstd
 
