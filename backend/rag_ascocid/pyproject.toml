@@ -41,6 +41,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ascocid"]
 
+[tool.pytest.ini_options]
+# Le paquet n'a pas à être installé pour que la suite tourne : utile en CI comme
+# en local, où le venv du projet sert surtout aux dépendances lourdes.
+pythonpath = ["src"]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 95
 target-version = "py312"

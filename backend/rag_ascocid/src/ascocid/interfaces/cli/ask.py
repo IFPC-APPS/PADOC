@@ -85,17 +85,17 @@ def poser(
                 title=f"Passages ({len(passages)})", border_style="blue"))
             return
 
-        cle = os.environ.get("GEMINI_API_KEY", "").strip()
-        if not cle:
+        from ascocid.infrastructure.llm import fabrique
+
+        if not fabrique.fournisseur_actif():
             console.print(Panel(
-                "Aucune clé. Renseigner [bold]GEMINI_API_KEY[/bold] dans .env.\n"
+                "Aucune clé. Renseigner [bold]ARGO_API_KEY[/bold] (INRAE) ou "
+                "[bold]GEMINI_API_KEY[/bold] dans .env.\n"
                 "[bold]--sources-seules[/bold] fonctionne sans clé.",
                 title="Génération indisponible", border_style="yellow"))
             raise typer.Exit(code=2)
 
-        from ascocid.infrastructure.llm.gemini import GenerateurGemini
-
-        generateur = GenerateurGemini()
+        generateur = fabrique.generateur()
         generateur.carte = gabarit.carte_du_corpus(magasin)
         chaine = Pipeline(analyseur, recherche, generateur, verifier, magasin, k=k)
 

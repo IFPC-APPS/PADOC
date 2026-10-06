@@ -115,21 +115,22 @@ class Moteur:
         with MagasinSqlite(BASE_DONNEES) as magasin:
             self.carte = gabarit.carte_du_corpus(magasin)
 
-        if os.environ.get("GEMINI_API_KEY", "").strip():
-            from ascocid.infrastructure.llm.gemini import GenerateurGemini
-            from ascocid.infrastructure.llm.gemini_analyse import AnalyseurGemini
+        from ascocid.infrastructure.llm import fabrique
 
-            self.analyseur_modele = AnalyseurGemini(self.registre)
+        if (fournisseur := fabrique.fournisseur_actif()):
+            self.analyseur_modele = fabrique.analyseur(self.registre, fournisseur)
             self.modele_analyse = self.analyseur_modele.identifiant_modele
-            # Un seul client HTTP pour tout le service : les deux adaptateurs
-            # sont sans état d'une requête à l'autre, seul le prompt change.
-            self.generateur = GenerateurGemini()
+            # Les deux adaptateurs sont sans état d'une requête à l'autre :
+            # seul le prompt change.
+            self.generateur = fabrique.generateur(fournisseur)
             self.generateur.carte = self.carte
             self.modele_redaction = self.generateur.identifiant_modele
             self.generation_disponible = True
+            print(f"[ldc] fournisseur {fournisseur} — rédaction "
+                  f"{self.modele_redaction}, analyse {self.modele_analyse}")
         else:
-            print("[ldc] GEMINI_API_KEY absente — la rédaction est indisponible, "
-                  "seules les sources seront renvoyées")
+            print("[ldc] aucune clé de modèle (ARGO_API_KEY ou GEMINI_API_KEY) — "
+                  "la rédaction est indisponible, seules les sources seront renvoyées")
         self.charge_le = time.perf_counter() - debut
 
     def pipeline(self, magasin: MagasinSqlite, k: int) -> Pipeline:

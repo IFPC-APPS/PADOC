@@ -11,7 +11,6 @@ n'est pas perdu.
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import re
 import time
@@ -22,8 +21,8 @@ from dotenv import load_dotenv
 from rich.console import Console
 
 from ascocid.application.requete import prompt as gabarit
-from ascocid.application.requete.verification import verifier
 from ascocid.application.requete.recherche import RechercheHybride
+from ascocid.application.requete.verification import verifier
 from ascocid.infrastructure.graphe.sqlite import MagasinSqlite
 
 app = typer.Typer(add_completion=False, help=__doc__)
@@ -52,10 +51,12 @@ def lancer(
 
     generateur = None
     if not sans_generation:
-        if os.environ.get("GEMINI_API_KEY", "").strip():
-            from ascocid.infrastructure.llm.gemini import GenerateurGemini
-            generateur = GenerateurGemini()
-            console.print(f"génération : [bold]{generateur.identifiant_modele}[/bold]")
+        from ascocid.infrastructure.llm import fabrique
+
+        if (fournisseur := fabrique.fournisseur_actif()):
+            generateur = fabrique.generateur(fournisseur)
+            console.print(f"génération : [bold]{generateur.identifiant_modele}[/bold] "
+                          f"({fournisseur})")
         else:
             console.print("[yellow]Pas de clé — recherche seule.[/yellow]")
 
