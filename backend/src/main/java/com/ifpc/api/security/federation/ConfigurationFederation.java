@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
@@ -83,6 +84,16 @@ public class ConfigurationFederation {
                 // jeton ou un code à usage unique, jamais depuis un formulaire
                 // porteur de cookie : le CSRF n'y a pas de prise, et l'exiger
                 // casserait l'échange de code. C'est la configuration amont.
+                // CORS désactivé sur cette chaîne. Spring Security applique
+                // d'office le bean « corsConfigurationSource » à TOUTES les
+                // chaînes, et celui-ci est enregistré sur /** avec la liste
+                // d'origines de l'API. Or rien ici n'est appelé en XHR depuis
+                // un navigateur : /oauth2/token et /oauth2/jwks le sont de
+                // serveur à serveur, et /oauth2/authorize par une navigation.
+                // Soumettre ces routes à une liste blanche d'origines ne
+                // protège rien et les casse dès que l'origine réelle diffère
+                // de celle qu'on avait prévue.
+                .cors(AbstractHttpConfigurer::disable)
                 .csrf(csrf -> csrf.ignoringRequestMatchers(pointsDEntree))
                 // Un navigateur non authentifié arrivant sur /oauth2/authorize
                 // doit voir le formulaire de connexion, pas un 401 nu.
@@ -116,6 +127,11 @@ public class ConfigurationFederation {
     public SecurityFilterChain chaineConnexionFederation(HttpSecurity http) throws Exception {
         http
                 .securityMatcher("/federation/**")
+                // Même raison : un formulaire de connexion est une navigation,
+                // pas un appel XHR. Le filtre CORS le refusait avec « Invalid
+                // CORS request » — un 403 sans rapport avec les identifiants,
+                // et donc indéchiffrable pour qui le reçoit.
+                .cors(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(requetes -> requetes
                         // Le guide d'intégration est public, comme le document de
                         // découverte qu'il commente : son lecteur est un

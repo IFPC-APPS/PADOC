@@ -15,6 +15,16 @@ spring:
 
 server:
   port: ${PORT:8080}
+  # Le Core API est servi derrière le front : une adresse publique
+  # (ifpc.vercel.app) relaie vers l'hôte interne de l'hébergeur. Sans cette
+  # ligne, Spring construit ses redirections avec l'hôte INTERNE, et le
+  # navigateur quitte le domaine public au premier renvoi — c'est ainsi que le
+  # formulaire de connexion fédérée se retrouvait servi depuis l'URL de
+  # l'hébergeur, avec une origine que la liste CORS ne connaissait pas.
+  #
+  # « framework » fait honorer X-Forwarded-Host et X-Forwarded-Proto, que le
+  # relais renseigne : les redirections restent alors sur l'adresse publique.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:framework}
   # Les 8 Ko par défaut de Tomcat suffisent à une API, pas à un navigateur :
   # sur un poste de développement, tous les services d'un même hôte partagent
   # le domaine « localhost » et leurs cookies s'additionnent. Au-delà de la
