@@ -2,7 +2,6 @@ package com.ifpc.api.security.federation;
 
 import com.ifpc.api.models.Role;
 import com.ifpc.api.models.User;
-import com.ifpc.api.repositories.HabilitationPlateformeRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,21 +20,23 @@ import java.nio.charset.StandardCharsets;
 /**
  * Dernier contrôle avant l'émission d'un code d'autorisation.
  *
- * <p>Deux refus y sont prononcés, tous deux <em>avant</em> que le moindre code
- * ne parte vers la plateforme cliente :</p>
+ * <p>Tout compte IFPC validé accède aux plateformes de la fédération : avoir un
+ * compte PADOC suffit, comme avoir un compte Google suffit pour « Se connecter
+ * avec Google ». Ce que la personne peut faire une fois arrivée relève des
+ * rôles transmis dans le jeton ({@link PersonnalisationJeton}), pas de ce
+ * filtre.</p>
  *
- * <ul>
- *   <li><b>Compte en attente de validation</b> (spec §8). Le formulaire de
- *       connexion le refuse déjà — {@code User.isEnabled()} en tient compte —
- *       mais une session ouverte survit à une rétrogradation vers
- *       {@code PENDING} décidée entre-temps par un administrateur. Sans ce
- *       second contrôle, la fédération deviendrait une porte de contournement
- *       de la validation manuelle.</li>
- *   <li><b>Aucune habilitation sur la plateforme demandée</b> (spec §7.2). Un
- *       compte IFPC n'ouvre pas silencieusement l'accès à tout outil qui
- *       rejoint la fédération : l'accès est un acte d'administration
- *       explicite.</li>
- * </ul>
+ * <p>Un seul refus y est donc prononcé, <em>avant</em> que le moindre code ne
+ * parte vers la plateforme cliente : le <b>compte en attente de validation</b>
+ * (spec §8). Le formulaire de connexion le refuse déjà —
+ * {@code User.isEnabled()} en tient compte — mais une session ouverte survit à
+ * une rétrogradation vers {@code PENDING} décidée entre-temps par un
+ * administrateur. Sans ce second contrôle, la fédération deviendrait une porte
+ * de contournement de la validation manuelle.</p>
+ *
+ * <p>Exiger en plus une habilitation par plateforme fermait l'accès à tous,
+ * administrateurs compris, tant que personne ne l'avait accordée une à une :
+ * l'habilitation ne sert plus qu'à porter des rôles.</p>
  *
  * <p>Le refus est rendu en HTML : l'utilisateur est dans un navigateur, au
  * milieu d'une redirection. Lui répondre un JSON d'erreur afficherait une page
@@ -44,7 +45,6 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class ControleAccesPlateforme extends OncePerRequestFilter {
 
-    private final HabilitationPlateformeRepository habilitations;
     private final String cheminAutorisation;
 
     @Override
@@ -73,25 +73,6 @@ public class ControleAccesPlateforme extends OncePerRequestFilter {
             refuser(reponse, "Compte en attente de validation",
                     "Votre compte IFPC n'a pas encore été validé par un administrateur. "
                             + "Vous recevrez un courriel dès qu'il le sera.");
-            return;
-        }
-
-        String clientId = requete.getParameter("client_id");
-        if (clientId == null || clientId.isBlank()) {
-            // Requête malformée : c'est au serveur d'autorisation de produire
-            // l'erreur normalisée, pas à ce filtre de l'inventer.
-            chaine.doFilter(requete, reponse);
-            return;
-        }
-
-        boolean habilite = habilitations
-                .findByUtilisateurIdAndClientId(utilisateur.getId(), clientId)
-                .isPresent();
-
-        if (!habilite) {
-            refuser(reponse, "Accès non accordé",
-                    "Votre compte IFPC existe bien, mais il n'a pas encore reçu l'accès à cette "
-                            + "plateforme. Demandez à un administrateur IFPC de vous l'accorder.");
             return;
         }
 

@@ -1,9 +1,7 @@
 package com.ifpc.api.security.federation;
 
-import com.ifpc.api.models.HabilitationPlateforme;
 import com.ifpc.api.models.Role;
 import com.ifpc.api.models.User;
-import com.ifpc.api.repositories.HabilitationPlateformeRepository;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,16 +17,16 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Les deux refus prononcés avant qu'un code d'autorisation ne soit émis.
+ * Le contrôle prononcé avant qu'un code d'autorisation ne soit émis.
  *
- * <p>Ce sont les contrôles qui empêchent la fédération de devenir une porte
- * d'entrée plus permissive que la connexion directe à PADOC.</p>
+ * <p>Tout compte validé passe ; seul un compte en attente est arrêté — c'est ce
+ * qui empêche la fédération de devenir une porte d'entrée plus permissive que
+ * la connexion directe à PADOC.</p>
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -36,7 +34,6 @@ class ControleAccesPlateformeTest {
 
     private static final String CHEMIN = "/oauth2/authorize";
 
-    @Mock private HabilitationPlateformeRepository habilitations;
     @Mock private FilterChain chaine;
 
     @AfterEach
@@ -45,7 +42,7 @@ class ControleAccesPlateformeTest {
     }
 
     private ControleAccesPlateforme filtre() {
-        return new ControleAccesPlateforme(habilitations, CHEMIN);
+        return new ControleAccesPlateforme(CHEMIN);
     }
 
     private MockHttpServletRequest requete(String clientId) {
@@ -83,31 +80,14 @@ class ControleAccesPlateformeTest {
         assertEquals(403, reponse.getStatus());
         assertTrue(reponse.getContentAsString().contains("attente de validation"));
         verify(chaine, never()).doFilter(any(), any());
-        verifyNoInteractions(habilitations);
     }
 
     @Test
-    @DisplayName("sans habilitation sur la plateforme demandée, l'accès est refusé")
-    void sansHabilitationRefuse() throws Exception {
+    @DisplayName("un compte validé passe sans habilitation : venir de PADOC suffit")
+    void compteValideSansHabilitationPasse() throws Exception {
+        // Exiger une habilitation fermait la plateforme à tous, administrateurs
+        // compris, tant que personne ne l'avait accordée une à une.
         connecter(utilisateur(Role.USER));
-        when(habilitations.findByUtilisateurIdAndClientId(4L, "analyse")).thenReturn(Optional.empty());
-        MockHttpServletResponse reponse = new MockHttpServletResponse();
-
-        filtre().doFilter(requete("analyse"), reponse, chaine);
-
-        assertEquals(403, reponse.getStatus());
-        assertTrue(reponse.getContentAsString().contains("pas encore reçu l'accès"));
-        verify(chaine, never()).doFilter(any(), any());
-    }
-
-    @Test
-    @DisplayName("avec habilitation, le parcours continue")
-    void avecHabilitationPasse() throws Exception {
-        User u = utilisateur(Role.USER);
-        connecter(u);
-        when(habilitations.findByUtilisateurIdAndClientId(4L, "analyse"))
-                .thenReturn(Optional.of(HabilitationPlateforme.builder()
-                        .utilisateur(u).clientId("analyse").roles("degustateur").build()));
         MockHttpServletResponse reponse = new MockHttpServletResponse();
 
         filtre().doFilter(requete("analyse"), reponse, chaine);
@@ -117,20 +97,15 @@ class ControleAccesPlateformeTest {
     }
 
     @Test
-    @DisplayName("l'habilitation est vérifiée plateforme par plateforme")
-    void habilitationNeFranchitPasLesPlateformes() throws Exception {
-        User u = utilisateur(Role.USER);
-        connecter(u);
-        when(habilitations.findByUtilisateurIdAndClientId(4L, "analyse"))
-                .thenReturn(Optional.of(HabilitationPlateforme.builder()
-                        .utilisateur(u).clientId("analyse").build()));
-        when(habilitations.findByUtilisateurIdAndClientId(4L, "autre-outil"))
-                .thenReturn(Optional.empty());
+    @DisplayName("un administrateur passe lui aussi, sans habilitation")
+    void administrateurPasse() throws Exception {
+        connecter(utilisateur(Role.ADMIN));
         MockHttpServletResponse reponse = new MockHttpServletResponse();
 
-        filtre().doFilter(requete("autre-outil"), reponse, chaine);
+        filtre().doFilter(requete("analyse"), reponse, chaine);
 
-        assertEquals(403, reponse.getStatus());
+        assertEquals(200, reponse.getStatus());
+        verify(chaine).doFilter(any(), any());
     }
 
     @Test
@@ -141,7 +116,6 @@ class ControleAccesPlateformeTest {
         filtre().doFilter(requete("analyse"), reponse, chaine);
 
         verify(chaine).doFilter(any(), any());
-        verifyNoInteractions(habilitations);
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.ifpc.api.security.federation;
 
-import com.ifpc.api.repositories.HabilitationPlateformeRepository;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.slf4j.Logger;
@@ -124,7 +123,6 @@ public class ConfigurationFederation {
     @Order(1)
     public SecurityFilterChain chaineServeurAutorisation(
             HttpSecurity http,
-            HabilitationPlateformeRepository habilitations,
             AuthorizationServerSettings reglages,
             @Value("${federation.issuer:}") String emetteur
     ) throws Exception {
@@ -168,7 +166,7 @@ public class ConfigurationFederation {
                 // sécurité : l'utilisateur y est connu, et l'on est encore très
                 // en amont de l'émission du code.
                 .addFilterAfter(
-                        new ControleAccesPlateforme(habilitations, reglages.getAuthorizationEndpoint()),
+                        new ControleAccesPlateforme(reglages.getAuthorizationEndpoint()),
                         SecurityContextHolderFilter.class);
 
         return http.build();

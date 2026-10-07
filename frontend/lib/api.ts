@@ -118,6 +118,43 @@ export async function basculerFonctionnalite(cle: string, activee: boolean) {
   return response.data;
 }
 
+// ── Fédération : qui accède à quelle plateforme ─────────────────────────────
+
+export interface Habilitation {
+  id: number;
+  utilisateurId: number;
+  email: string;
+  externalId: string;
+  clientId: string;
+  roles: string[];
+  accordeLe: string | null;
+  accordePar: string | null;
+}
+
+/** Les comptes habilités sur une plateforme partenaire. */
+export async function getHabilitations(clientId: string): Promise<Habilitation[]> {
+  const response = await api.get("/admin/federation/habilitations", { params: { clientId } });
+  return response.data;
+}
+
+/**
+ * Accorde ou met à jour un accès.
+ *
+ * Les rôles sont ceux de la plateforme partenaire, pas ceux de PADOC : leur
+ * vocabulaire appartient à l'outil fédéré, et PADOC ne les valide pas.
+ */
+export async function accorderHabilitation(utilisateurId: number, clientId: string, roles: string) {
+  const response = await api.put(
+    `/admin/federation/utilisateurs/${utilisateurId}/habilitations/${clientId}`,
+    { roles },
+  );
+  return response.data;
+}
+
+export async function retirerHabilitation(utilisateurId: number, clientId: string) {
+  await api.delete(`/admin/federation/utilisateurs/${utilisateurId}/habilitations/${clientId}`);
+}
+
 // ── Admin ───────────────────────────────────────────────────────────────────
 
 export async function getUsers() {
