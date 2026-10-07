@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getEtatFonctionnalites, type EtatFonctionnalites } from "./api";
+import { fonctionnaliteDuChemin, modulesVisibles } from "./modules";
 
 /**
  * Quelles parties de l'outil sont ouvertes à l'utilisateur courant.
@@ -45,5 +46,28 @@ export function useFonctionnalites(): {
   return {
     etat,
     ouverte: (cle: string) => etat?.[cle] !== false,
+  };
+}
+
+/**
+ * La navigation complète : ce que le rôle autorise, et ce qu'un administrateur
+ * a laissé ouvert.
+ *
+ * Les trois surfaces — menu, modules du tableau de bord, activités récentes —
+ * passent par ici. Elles tenaient chacune leur règle, et la dernière en date
+ * n'appliquait pas les fonctionnalités : un pan fermé disparaissait du menu
+ * mais restait proposé sur le tableau de bord.
+ */
+export function useNavigation(role: string | undefined, surface: "accueil" | "menu") {
+  const { ouverte, etat } = useFonctionnalites();
+  return {
+    etat,
+    ouverte,
+    modules: modulesVisibles(role, surface).filter((m) => ouverte(m.key)),
+    /** Une adresse est-elle encore proposable ? */
+    cheminOuvert: (href: string) => {
+      const cle = fonctionnaliteDuChemin(href);
+      return cle === null || ouverte(cle);
+    },
   };
 }

@@ -14,8 +14,7 @@ import { accentDe } from "@/lib/accents";
 import { useAuthStore } from "@/lib/store";
 import { useSidebar } from "@/lib/sidebar-context";
 import { useI18n } from "@/lib/i18n";
-import { useFonctionnalites } from "@/lib/fonctionnalites";
-import { modulesVisibles } from "@/lib/modules";
+import { useNavigation } from "@/lib/fonctionnalites";
 
 interface NavGroup {
   key: string;
@@ -29,9 +28,8 @@ export default function Sidebar() {
   const { user, isLoading, checkAuth, logout } = useAuthStore();
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const { t } = useI18n();
-  // Les pans fermés par un administrateur ne sont pas proposés. Un
-  // administrateur, lui, continue de tout voir.
-  const { ouverte } = useFonctionnalites();
+  // Rôle et fonctionnalités par la même règle que le tableau de bord.
+  const { ouverte, modules: declares } = useNavigation(user?.role, "menu");
   // La couleur de la section courante, portée par le libellé actif et son
   // indicateur.
   const accent = accentDe(pathname ?? "/");
@@ -59,14 +57,12 @@ export default function Sidebar() {
     cuves: Container,
   };
 
-  const navGroups: NavGroup[] = modulesVisibles(user?.role, "menu")
-    .filter((m) => ouverte(m.key))
-    .map((m) => ({
-      key: m.key,
-      label: t(m.labelKeyMenu),
-      icon: ICONES[m.key] ?? Container,
-      children: m.sousModules.map((s) => ({ href: s.href, label: t(s.labelKey) })),
-    }));
+  const navGroups: NavGroup[] = declares.map((m) => ({
+    key: m.key,
+    label: t(m.labelKeyMenu),
+    icon: ICONES[m.key] ?? Container,
+    children: m.sousModules.map((s) => ({ href: s.href, label: t(s.labelKey) })),
+  }));
 
   if (pathname === "/login") return null;
 

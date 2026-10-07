@@ -96,3 +96,44 @@ export const modulesVisibles = (
 /** Toutes les destinations réservées aux administrateurs. */
 export const cheminsAdministrateur = (): string[] =>
   MODULES.filter((m) => m.adminOnly).flatMap((m) => m.sousModules.map((s) => s.href));
+
+/**
+ * À quelle fonctionnalité appartient une adresse.
+ *
+ * Le tableau de bord ne propose pas que des modules : sa section « Reprendre »
+ * pointe directement vers des écrans. Sans cette correspondance, fermer un pan
+ * le retirait du menu et des modules, mais le laissait atteignable d'un clic
+ * depuis la liste des activités récentes.
+ *
+ * Les clés hors catalogue — « /historique », « /assistant » — sont déclarées
+ * ici aussi : ce sont des fonctionnalités à part entière côté Core API, même
+ * si elles n'ont pas de module sur l'accueil.
+ */
+const CHEMINS_HORS_MODULES: Record<string, string> = {
+  "/historique": "historique",
+  "/assistant": "assistant",
+};
+
+export const fonctionnaliteDuChemin = (href: string): string | null => {
+  let trouvee: string | null = null;
+  let plusLong = "";
+  const candidats: [string, string][] = [
+    ...Object.entries(CHEMINS_HORS_MODULES),
+    // Les modules réservés aux administrateurs sont écartés : leur accès tient
+    // au rôle, pas à une fonctionnalité. Les y soumettre permettrait de fermer
+    // l'écran d'administration — c'est-à-dire l'endroit même d'où l'on
+    // rouvrirait ce qu'on vient de fermer.
+    ...MODULES.filter((m) => !m.adminOnly)
+      .flatMap((m) => m.sousModules.map((s) => [s.href, m.key] as [string, string])),
+  ];
+  for (const [chemin, cle] of candidats) {
+    // Fin de chemin ou séparateur : « /cuves » ne doit pas emporter
+    // « /cuvesphere », qui n'a rien à voir.
+    const correspond = href === chemin || href.startsWith(chemin + "/");
+    if (correspond && chemin.length > plusLong.length) {
+      plusLong = chemin;
+      trouvee = cle;
+    }
+  }
+  return trouvee;
+};
