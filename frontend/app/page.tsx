@@ -14,6 +14,7 @@ import {
 } from "@/components/icones";
 import { getHistory, type HistoryEntry } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { modulesVisibles } from "@/lib/modules";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -247,51 +248,28 @@ export default function Home() {
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({ pasteurisation: true });
 
-  const modules: Module[] = [
-    {
-      key: "pasto",
-      glyphe: GlypheePasteurisation,
-      label: t("home.modules.pasteurisation"),
-      couleur: "text-brand-primary",
-      subModules: [
-        { href: "/controle", label: t("nav.calculVP") },
-        { href: "/bareme", label: t("nav.aideBareme") },
-      ],
-    },
-    {
-      key: "colori",
-      glyphe: GlypheeColorimetrie,
-      label: t("home.modules.colorimetrie"),
-      couleur: "text-brand-accent",
-      subModules: [
-        { href: "/colorimetrie/assemblage", label: t("colori.title") },
-      ],
-    },
-    {
-      // « Suivi des cuves » était rangé sous Colorimétrie : un module de
-      // quatre pages classé comme sous-rubrique d'un autre.
-      key: "cuves",
-      glyphe: GlypheeCuve,
-      label: t("home.cards.cuvesTitre"),
-      couleur: "text-brand-link",
-      subModules: [
-        // Mêmes retraits que la barre latérale : laisser ces liens sur
-        // l'accueil pendant qu'ils disparaissent du menu ferait de la page
-        // d'entrée le seul chemin vers des écrans qu'on retire.
-        { href: "/cuves/chai", label: t("nav.chaiVirtuel") },
-      ],
-    },
-    {
-      key: "admin",
-      label: t("home.modules.admin"),
-      couleur: "text-gray-500",
-      adminOnly: true,
-      subModules: [
-        { href: "/admin", label: t("home.modules.users") },
-        { href: "/expert", label: t("home.modules.config") },
-      ],
-    },
-  ];
+  // Même liste que la barre latérale (lib/modules.ts). Les deux surfaces en
+  // tenaient chacune la sienne et avaient fini par se désaccorder.
+  const GLYPHES: Record<string, Module["glyphe"]> = {
+    pasteurisation: GlypheePasteurisation,
+    colorimetrie: GlypheeColorimetrie,
+    cuves: GlypheeCuve,
+  };
+  const COULEURS: Record<string, string> = {
+    pasteurisation: "text-brand-primary",
+    colorimetrie: "text-brand-accent",
+    cuves: "text-brand-link",
+    administration: "text-gray-500",
+  };
+
+  const modules: Module[] = modulesVisibles(user?.role, "accueil").map((m) => ({
+    key: m.key,
+    label: t(m.labelKeyAccueil),
+    couleur: COULEURS[m.key] ?? "text-gray-500",
+    glyphe: GLYPHES[m.key],
+    adminOnly: m.adminOnly,
+    subModules: m.sousModules.map((s) => ({ href: s.href, label: t(s.labelKey) })),
+  }));
 
   useEffect(() => {
     let cancelled = false;
@@ -345,7 +323,9 @@ export default function Home() {
     return t("home.greetingEvening");
   };
 
-  const visibleModules = modules.filter((m) => !m.adminOnly || user?.role === "ADMIN");
+  // Le tri par rôle est déjà fait par modulesVisibles : le refaire ici
+  // rouvrirait la porte à deux règles qui se contredisent.
+  const visibleModules = modules;
 
   return (
     <div className="min-h-screen bg-[#fafaf8] text-gray-950 px-4 sm:px-8 py-6 sm:py-10 relative overflow-hidden">
