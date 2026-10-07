@@ -1,16 +1,21 @@
 package com.ifpc.api.security.federation;
 
 import com.ifpc.api.models.HabilitationPlateforme;
+import com.ifpc.api.models.Role;
 import com.ifpc.api.models.User;
 import com.ifpc.api.repositories.HabilitationPlateformeRepository;
 import com.ifpc.api.repositories.UserRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Remplit les claims des jetons émis aux plateformes fédérées.
@@ -25,13 +30,16 @@ import java.util.Set;
  *   <li><b>Les rôles émis sont ceux de la plateforme destinataire</b>
  *       (spec §7.2), lus dans la table d'habilitation. Le rôle IFPC
  *       ({@code EXPERT}, {@code ADMIN}…) n'est jamais propagé : il n'a de sens
- *       que sur PADOC.</li>
+ *       que sur PADOC. Une seule passerelle, explicite : un administrateur
+ *       PADOC reçoit en plus les rôles déclarés dans
+ *       {@code FEDERATION_CLIENT_ROLES_ADMIN} pour la plateforme déclarée —
+ *       sans quoi il faudrait l'habiliter à la main pour administrer l'outil
+ *       qu'il vient de raccorder.</li>
  *   <li><b>Les claims d'identité suivent les portées accordées.</b> Une
  *       plateforme qui n'a pas demandé {@code email} ne le reçoit pas.</li>
  * </ol>
  */
 @Component
-@RequiredArgsConstructor
 public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingContext> {
 
     /**
@@ -46,6 +54,29 @@ public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingC
 
     private final UserRepository utilisateurs;
     private final HabilitationPlateformeRepository habilitations;
+    private final String clientDeclare;
+    private final Set<String> rolesAdmin;
+
+    @Autowired
+    public PersonnalisationJeton(
+            UserRepository utilisateurs,
+            HabilitationPlateformeRepository habilitations,
+            @Value("${federation.client.id:}") String clientDeclare,
+            @Value("${federation.client.roles-admin:}") String rolesAdmin
+    ) {
+        this.utilisateurs = utilisateurs;
+        this.habilitations = habilitations;
+        this.clientDeclare = clientDeclare;
+        this.rolesAdmin = rolesAdmin == null ? Set.of() : Arrays.stream(rolesAdmin.split(","))
+                .map(String::trim)
+                .filter(r -> !r.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /** Sans rôle accordé d'office aux administrateurs. */
+    public PersonnalisationJeton(UserRepository utilisateurs, HabilitationPlateformeRepository habilitations) {
+        this(utilisateurs, habilitations, "", "");
+    }
 
     @Override
     public void customize(JwtEncodingContext contexte) {
@@ -111,9 +142,16 @@ public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingC
     }
 
     private Set<String> rolesPour(User utilisateur, String clientId) {
-        return habilitations.findByUtilisateurIdAndClientId(utilisateur.getId(), clientId)
-                .map(HabilitationPlateforme::rolesEnSet)
-                .orElse(Set.of());
+        Set<String> roles = new LinkedHashSet<>(
+                habilitations.findByUtilisateurIdAndClientId(utilisateur.getId(), clientId)
+                        .map(HabilitationPlateforme::rolesEnSet)
+                        .orElse(Set.of()));
+        // Limité à la plateforme déclarée : ces rôles sont dans SON vocabulaire,
+        // ils n'auraient aucun sens — ou un sens imprévu — chez une autre.
+        if (utilisateur.getRole() == Role.ADMIN && clientId.equals(clientDeclare)) {
+            roles.addAll(rolesAdmin);
+        }
+        return roles;
     }
 
     private static String nomComplet(User utilisateur) {

@@ -27,6 +27,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -116,6 +118,43 @@ class PersonnalisationJetonTest {
         assertEquals(Set.of("degustateur", "referent"), roles);
         assertFalse(roles.toString().contains("EXPERT"),
                 "le rôle IFPC n'a pas de sens sur une autre plateforme et ne doit pas fuir");
+    }
+
+    @Test
+    @DisplayName("un administrateur PADOC reçoit d'office les rôles déclarés pour la plateforme")
+    void administrateurRecoitRolesDeclares() {
+        User u = utilisateur();
+        u.setRole(Role.ADMIN);
+        when(utilisateurs.findByEmail(u.getEmail())).thenReturn(Optional.of(u));
+        when(habilitations.findByUtilisateurIdAndClientId(7L, "ciderscope"))
+                .thenReturn(Optional.of(HabilitationPlateforme.builder()
+                        .utilisateur(u).clientId("ciderscope").roles("creneaux").build()));
+
+        JwtEncodingContext ctx = contexte(u, "ciderscope", OAuth2TokenType.ACCESS_TOKEN, Set.of("openid"));
+        new PersonnalisationJeton(utilisateurs, habilitations, "ciderscope", "animateur").customize(ctx);
+
+        assertEquals(Set.of("creneaux", "animateur"),
+                ctx.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
+    }
+
+    @Test
+    @DisplayName("les rôles d'administrateur ne valent que pour la plateforme déclarée, et que pour un ADMIN")
+    void rolesAdminCirconscrits() {
+        User admin = utilisateur();
+        admin.setRole(Role.ADMIN);
+        when(utilisateurs.findByEmail(admin.getEmail())).thenReturn(Optional.of(admin));
+        when(habilitations.findByUtilisateurIdAndClientId(eq(7L), anyString())).thenReturn(Optional.empty());
+        PersonnalisationJeton p = new PersonnalisationJeton(utilisateurs, habilitations, "ciderscope", "animateur");
+
+        JwtEncodingContext autre = contexte(admin, "autre", OAuth2TokenType.ACCESS_TOKEN, Set.of("openid"));
+        p.customize(autre);
+        assertEquals(Set.of(), autre.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
+
+        User expert = utilisateur();
+        when(utilisateurs.findByEmail(expert.getEmail())).thenReturn(Optional.of(expert));
+        JwtEncodingContext ctx = contexte(expert, "ciderscope", OAuth2TokenType.ACCESS_TOKEN, Set.of("openid"));
+        p.customize(ctx);
+        assertEquals(Set.of(), ctx.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
     }
 
     @Test
