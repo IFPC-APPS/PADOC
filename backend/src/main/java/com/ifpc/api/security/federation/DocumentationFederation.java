@@ -167,13 +167,13 @@ public class DocumentationFederation {
             aussi un <code>client_secret</code> — voir §3.</p>
 
             <div class="note">
-              <p><strong>Vos utilisateurs doivent être habilités un par un.</strong> Avoir
-              un compte IFPC ne suffit pas&nbsp;: un administrateur IFPC accorde
-              explicitement l'accès à votre plateforme, compte par compte. C'est voulu — un
-              compte IFPC n'ouvre pas l'accès à tous les outils de la fédération.</p>
-              <p>Un utilisateur non habilité voit une page « Accès non accordé » et
-              <strong>aucun code d'autorisation n'est émis</strong>. Ce n'est pas une panne
-              de votre intégration.</p>
+              <p><strong>Tout compte IFPC validé peut se connecter à votre plateforme.</strong>
+              Aucune démarche par utilisateur n'est nécessaire&nbsp;: venir d'IFPC suffit.
+              Ce que la personne peut faire chez vous dépend des rôles transmis dans le
+              jeton (§6), que vous gérez avec l'administrateur IFPC.</p>
+              <p>Un compte dont l'inscription n'est pas encore validée voit une page
+              « Compte en attente de validation » et <strong>aucun code d'autorisation
+              n'est émis</strong>. Ce n'est pas une panne de votre intégration.</p>
             </div>
 
             <h2>2. Le parcours</h2>
@@ -311,9 +311,9 @@ public class DocumentationFederation {
             vocabulaire. Les rôles internes d'IFPC ne vous sont jamais transmis&nbsp;: ils
             n'ont de sens que chez nous. Dites à l'administrateur IFPC quels noms de rôles
             vous utilisez, il les saisira tels quels.</p>
-            <p>Une habilitation peut n'avoir aucun rôle&nbsp;: l'utilisateur a alors accès à
-            votre plateforme sans rôle particulier. Accès et rôles sont deux questions
-            distinctes.</p>
+            <p>Un utilisateur à qui aucun rôle n'a été accordé arrive chez vous avec un
+            claim <code>roles</code> vide&nbsp;: il est connecté, sans droit particulier.
+            Accès et rôles sont deux questions distinctes.</p>
 
             <h2>7. Durées de vie</h2>
             <div class="tableau"><table>
@@ -327,15 +327,12 @@ public class DocumentationFederation {
             <p>Le <code>refresh_token</code> est <strong>à rotation</strong>&nbsp;: chaque
             usage en émet un nouveau et invalide le précédent. Remplacez donc toujours celui
             que vous stockez. Un rejeu répond <code>invalid_grant</code> et signale un vol.</p>
-            <p>Un accès retiré par un administrateur IFPC prend effet au renouvellement
+            <p>Un rôle retiré par un administrateur IFPC prend effet au renouvellement
             suivant, soit dix minutes au plus.</p>
 
             <h2>8. Les refus que vous verrez</h2>
             <div class="tableau"><table>
               <tr><th>Ce que vous observez</th><th>Cause</th></tr>
-              <tr><td>Page « Accès non accordé »</td>
-                  <td>compte IFPC valide, mais sans habilitation sur votre plateforme
-                  (§1). À traiter avec l'administrateur IFPC, pas dans votre code.</td></tr>
               <tr><td>Page « Compte en attente de validation »</td>
                   <td>inscription IFPC pas encore approuvée par un administrateur.</td></tr>
               <tr><td>« Identifiants invalides, ou compte non encore validé »</td>

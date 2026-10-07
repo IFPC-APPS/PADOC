@@ -28,10 +28,10 @@ import java.util.Map;
  * paresseusement : construire la réponse hors transaction lève une
  * {@code LazyInitializationException}.</p>
  *
- * <p>Accorder un accès est un acte explicite et journalisé. Un compte IFPC
- * n'ouvre pas silencieusement l'accès à tout outil qui rejoint la fédération
- * (spec fédération §7.2) : sans habilitation, le parcours d'autorisation est
- * refusé avant l'émission du moindre code.</p>
+ * <p>Tout compte IFPC validé se connecte aux plateformes de la fédération ;
+ * l'habilitation ne conditionne pas l'entrée. Elle porte les rôles propres à
+ * une plateforme — « animateur » sur CiderScope, par exemple — et les accorder
+ * reste un acte explicite et journalisé.</p>
  */
 @RestController
 @RequestMapping("/api/admin/federation")

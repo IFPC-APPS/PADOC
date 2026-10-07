@@ -86,7 +86,7 @@ class DocumentationFederationTest {
                 "le rattachement par e-mail non vérifié doit être explicitement écarté");
         assertTrue(html.contains("refresh_token"), "l'absence pour un client public doit être dite");
         assertTrue(html.contains("kid"), "le rafraîchissement du cache JWKS conditionne la rotation");
-        assertTrue(html.contains("Accès non accordé"),
+        assertTrue(html.contains("Compte en attente de validation"),
                 "l'intégrateur doit savoir que ce refus n'est pas un défaut de son code");
     }
 
