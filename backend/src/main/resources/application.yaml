@@ -75,8 +75,10 @@ federation:
     # Correspondance exacte, séparées par des virgules. Jamais de joker.
     redirect-uris: ${FEDERATION_CLIENT_REDIRECT_URIS:}
     # Rôles de la plateforme accordés d'office aux administrateurs PADOC, dans
-    # le vocabulaire de la plateforme, séparés par des virgules.
-    roles-admin: ${FEDERATION_CLIENT_ROLES_ADMIN:}
+    # le vocabulaire de la plateforme, séparés par des virgules. Le défaut vit
+    # ici et non dans docker-compose : la production (Railway) ne lit pas ce
+    # fichier, et un défaut posé là-bas seulement y laissait la liste vide.
+    roles-admin: ${FEDERATION_CLIENT_ROLES_ADMIN:animateur}
     post-logout-uris: ${FEDERATION_CLIENT_POST_LOGOUT_URIS:}
 
 resend:
