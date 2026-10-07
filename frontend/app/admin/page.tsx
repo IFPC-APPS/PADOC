@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { Loader2, Search, X, Check, Activity, ShieldCheck, Trash2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import PanneauFonctionnalites from "@/components/PanneauFonctionnalites";
 
 interface UserData {
   id: number;
@@ -22,7 +23,7 @@ interface UserData {
 }
 
 
-type Tab = "pending" | "users";
+type Tab = "pending" | "users" | "fonctionnalites";
 
 function formatRelativeTime(iso: string | null, t: any): string {
   if (!iso) return t("admin.never");
@@ -171,6 +172,7 @@ export default function AdminPage() {
           {[
             { id: "pending", label: t("admin.tabRequests"), count: pendingUsers.length },
             { id: "users", label: t("admin.tabUsers") },
+            { id: "fonctionnalites", label: "Fonctionnalités" },
           ].map(tab => (
             <button
               key={tab.id}
@@ -191,6 +193,8 @@ export default function AdminPage() {
         </div>
 
         {/* --- TAB CONTENT --- */}
+
+        {activeTab === "fonctionnalites" && <PanneauFonctionnalites />}
         
         {/* PENDING USERS */}
         {activeTab === "pending" && (

@@ -97,6 +97,27 @@ export async function changePassword(data: { currentPassword: string; newPasswor
   return response.data;
 }
 
+// ── Fonctionnalités activables ──────────────────────────────────────────────
+
+export type EtatFonctionnalites = Record<string, boolean>;
+
+/** Ce que l'utilisateur courant a le droit de voir. Un administrateur : tout. */
+export async function getEtatFonctionnalites(): Promise<EtatFonctionnalites> {
+  const response = await api.get("/config/fonctionnalites");
+  return response.data;
+}
+
+/** Catalogue complet, avec l'auteur et la date du dernier changement. */
+export async function getFonctionnalites() {
+  const response = await api.get("/admin/fonctionnalites");
+  return response.data;
+}
+
+export async function basculerFonctionnalite(cle: string, activee: boolean) {
+  const response = await api.put(`/admin/fonctionnalites/${cle}`, { activee });
+  return response.data;
+}
+
 // ── Admin ───────────────────────────────────────────────────────────────────
 
 export async function getUsers() {

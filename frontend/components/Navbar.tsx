@@ -14,6 +14,7 @@ import { accentDe } from "@/lib/accents";
 import { useAuthStore } from "@/lib/store";
 import { useSidebar } from "@/lib/sidebar-context";
 import { useI18n } from "@/lib/i18n";
+import { useFonctionnalites } from "@/lib/fonctionnalites";
 
 interface NavGroup {
   key: string;
@@ -27,6 +28,9 @@ export default function Sidebar() {
   const { user, isLoading, checkAuth, logout } = useAuthStore();
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const { t } = useI18n();
+  // Les pans fermés par un administrateur ne sont pas proposés. Un
+  // administrateur, lui, continue de tout voir.
+  const { ouverte } = useFonctionnalites();
   // La couleur de la section courante, portée par le libellé actif et son
   // indicateur.
   const accent = accentDe(pathname ?? "/");
@@ -73,7 +77,7 @@ export default function Sidebar() {
         { href: "/cuves/chai", label: t("nav.chaiVirtuel") },
       ],
     },
-  ];
+  ].filter((groupe) => ouverte(groupe.key));
 
   if (pathname === "/login") return null;
 
@@ -146,6 +150,7 @@ export default function Sidebar() {
           </div>
 
           {/* Assistant du Livre de Connaissances */}
+          {ouverte("assistant") && (
           <div className="px-2 mb-1">
             <Link
               href="/assistant"
@@ -162,6 +167,7 @@ export default function Sidebar() {
               {(!collapsed || mobileOpen) && <span>{t("nav.assistant")}</span>}
             </Link>
           </div>
+          )}
 
           {/* Groups */}
           {navGroups.map((group) => {
@@ -240,6 +246,7 @@ export default function Sidebar() {
           })}
 
           {/* Historique */}
+          {ouverte("historique") && (
           <div className="px-2 mt-2 pt-2 border-t border-gray-100">
             <Link
               href="/historique"
@@ -256,6 +263,7 @@ export default function Sidebar() {
               {(!collapsed || mobileOpen) && <span>{t("nav.historique")}</span>}
             </Link>
           </div>
+          )}
 
           {/* Admin */}
           {user?.role === "ADMIN" && (
