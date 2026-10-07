@@ -41,7 +41,7 @@ permissions:
 
 jobs:
   core-api:
-    name: Core API (Spring Boot, 289 tests)
+    name: Core API (Spring Boot)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
           if-no-files-found: ignore
 
   calc-engine:
-    name: Calc Engine (FastAPI, 329 tests)
+    name: Calc Engine (FastAPI)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
         run: pytest tests -q
 
   frontend:
-    name: Frontend (Next.js, 133 tests)
+    name: Frontend (Next.js)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -125,12 +125,35 @@ jobs:
         run: npm test
 
   # Point de contrôle unique à exiger dans la protection de branche : il suffit
+  assistant:
+    name: Assistant AsCoCid
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Seulement de quoi exercer les adaptateurs de modèle : ni torch, ni
+      # sentence-transformers, qui pèsent plus d'un gigaoctet et que ces tests
+      # n'atteignent jamais. Le service complet est construit par son image.
+      - name: Dépendances
+        run: pip install pytest httpx pydantic
+
+      # Aucun appel réseau : le transport HTTP est simulé. Un test qui
+      # joindrait vraiment ARGO échouerait ici faute de clé, et surtout
+      # dépendrait de la disponibilité d'un service tiers.
+      - name: Tests
+        working-directory: backend/rag_ascocid
+        run: pytest -q
+
   # de le déclarer requis une fois, les jobs peuvent ensuite évoluer sans
   # retoucher aux réglages du dépôt.
   verdict:
     name: Verdict
     runs-on: ubuntu-24.04
-    needs: [core-api, calc-engine, frontend]
+    needs: [core-api, calc-engine, frontend, assistant]
     if: always()
     steps:
       - name: Échec si une suite a échoué
@@ -138,4 +161,4 @@ jobs:
         run: |
           echo "Au moins une suite n'est pas passée — ne pas déployer."
           exit 1
-      - run: echo "Les trois suites sont vertes."
+      - run: echo "Les quatre suites sont vertes."
