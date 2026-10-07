@@ -314,6 +314,9 @@ public class DocumentationFederation {
             <p>Un utilisateur à qui aucun rôle n'a été accordé arrive chez vous avec un
             claim <code>roles</code> vide&nbsp;: il est connecté, sans droit particulier.
             Accès et rôles sont deux questions distinctes.</p>
+            <p>Les administrateurs IFPC peuvent recevoir d'office des rôles convenus avec
+            vous — typiquement celui qui ouvre votre administration — sans habilitation
+            individuelle.</p>
 
             <h2>7. Durées de vie</h2>
             <div class="tableau"><table>
