@@ -81,7 +81,11 @@ public class PageConnexionFederation {
         // cassait jamais le cycle. ERR_TOO_MANY_REDIRECTS.
         demandesMemorisees.removeRequest(requete, reponse);
 
-        String suite = memorisee != null ? memorisee.getRedirectUrl() : null;
+        // Ramenée sur l'origine publique, pour la même raison que dans le
+        // gestionnaire de succès : l'adresse mémorisée porte l'hôte interne.
+        String suite = memorisee == null
+                ? null
+                : ConfigurationFederation.surEmetteur(memorisee.getRedirectUrl(), emetteur);
         // Et jamais vers cette page : une demande mémorisée qui pointerait ici
         // formerait une boucle à elle seule.
         if (suite == null || suite.contains(ConfigurationFederation.CHEMIN_CONNEXION)) {

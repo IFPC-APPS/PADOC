@@ -25,6 +25,10 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -80,6 +84,35 @@ public class ConfigurationFederation {
      * relais se succèdent : le second réécrit {@code X-Forwarded-Host} avec le
      * sien, et l'adresse publique est définitivement perdue.</p>
      */
+    /**
+     * Ramène une adresse absolue sur l'origine publique.
+     *
+     * <p>Spring mémorise la demande d'autorisation telle qu'il l'a VUE
+     * arriver, c'est-à-dire avec l'hôte interne : un relais placé devant
+     * réécrit l'hôte, et l'adresse publique ne lui parvient pas. Renvoyer
+     * l'utilisateur vers cette adresse lui fait changer de domaine, son cookie
+     * de session ne le suit pas, et il se retrouve non authentifié — donc
+     * renvoyé au formulaire qu'il vient de remplir.</p>
+     *
+     * <p>Seuls le chemin et la requête sont conservés ; l'origine devient celle
+     * de l'émetteur, la seule que le navigateur ait jamais connue.</p>
+     */
+    static String surEmetteur(String adresseAbsolue, String emetteur) {
+        if (adresseAbsolue == null || emetteur == null || emetteur.isBlank()) {
+            return adresseAbsolue;
+        }
+        try {
+            java.net.URI u = java.net.URI.create(adresseAbsolue);
+            String chemin = u.getRawPath() == null ? "/" : u.getRawPath();
+            String requete = u.getRawQuery() == null ? "" : "?" + u.getRawQuery();
+            return emetteur.replaceAll("/+$", "") + chemin + requete;
+        } catch (IllegalArgumentException adresseIllisible) {
+            // Adresse inexploitable : mieux vaut la racine publique qu'une
+            // redirection vers une destination qu'on ne sait pas lire.
+            return emetteur.replaceAll("/+$", "") + "/";
+        }
+    }
+
     private static String adresseConnexion(String emetteur) {
         if (emetteur == null || emetteur.isBlank()) {
             return CHEMIN_CONNEXION;
@@ -174,11 +207,36 @@ public class ConfigurationFederation {
                         // la même origine — donc avec le bon cookie de session.
                         .loginPage(adresseConnexion(emetteur))
                         .loginProcessingUrl(CHEMIN_CONNEXION)
-                        .failureUrl(adresseConnexion(emetteur) + "?erreur"))
+                        .failureUrl(adresseConnexion(emetteur) + "?erreur")
+                        // Le gestionnaire par défaut renvoie vers la demande
+                        // mémorisée telle quelle, donc vers l'hôte interne. On
+                        // la ramène sur l'origine publique, faute de quoi le
+                        // cookie de session ne suit pas et l'utilisateur est
+                        // réexpédié au formulaire qu'il vient de remplir.
+                        .successHandler(succesConnexion(emetteur)))
                 .logout(deconnexion -> deconnexion
                         .logoutUrl("/federation/deconnexion")
                         .logoutSuccessUrl(adresseConnexion(emetteur) + "?deconnecte"));
         return http.build();
+    }
+
+    private static AuthenticationSuccessHandler succesConnexion(String emetteur) {
+        RequestCache cache = new HttpSessionRequestCache();
+        return (requete, reponse, authentification) -> {
+            SavedRequest memorisee = cache.getRequest(requete, reponse);
+            // Consommée : une demande relue indéfiniment finit par former une
+            // boucle si elle ramène au formulaire.
+            cache.removeRequest(requete, reponse);
+
+            String suite = memorisee == null
+                    ? null
+                    : surEmetteur(memorisee.getRedirectUrl(), emetteur);
+            if (suite == null || suite.contains(CHEMIN_CONNEXION)) {
+                suite = (emetteur == null || emetteur.isBlank())
+                        ? "/" : emetteur.replaceAll("/+$", "") + "/";
+            }
+            reponse.sendRedirect(suite);
+        };
     }
 
     // ── Persistance ──────────────────────────────────────────────────────────
