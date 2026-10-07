@@ -9,7 +9,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Les rewrites de next.config.mjs sont figées dans routes-manifest.json
+# Les rewrites de next.config.mjs sont figées dans
 # au moment du build : les URLs des backends sont donc des ARG, pas des ENV runtime.
 ARG SPRING_URL=http://localhost:8080
 ARG FASTAPI_URL=http://localhost:8000
