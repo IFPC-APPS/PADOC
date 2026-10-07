@@ -55,4 +55,32 @@ class AdresseConnexionTest {
         assertEquals("http://localhost:8080/federation/connexion",
                 adresse("http://localhost:8080"));
     }
+
+    // ── Repli de la page de connexion ───────────────────────────────────────
+
+    private static String repli(String emetteur) throws Exception {
+        PageConnexionFederation page = new PageConnexionFederation();
+        java.lang.reflect.Field champ =
+                PageConnexionFederation.class.getDeclaredField("emetteur");
+        champ.setAccessible(true);
+        champ.set(page, emetteur);
+        java.lang.reflect.Method m =
+                PageConnexionFederation.class.getDeclaredMethod("repli");
+        m.setAccessible(true);
+        return (String) m.invoke(page);
+    }
+
+    @Test
+    void le_repli_vise_la_racine_publique() throws Exception {
+        // « / » désignerait la racine du serveur d'API, qui ne sert aucune page
+        // et répond 403 : une impasse pour qui vient de se connecter.
+        assertEquals("https://ifpc.vercel.app/", repli("https://ifpc.vercel.app"));
+        assertEquals("https://ifpc.vercel.app/", repli("https://ifpc.vercel.app/"));
+    }
+
+    @Test
+    void sans_emetteur_le_repli_reste_relatif() throws Exception {
+        assertEquals("/", repli(null));
+        assertEquals("/", repli(""));
+    }
 }
