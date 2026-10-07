@@ -15,6 +15,7 @@ import { useAuthStore } from "@/lib/store";
 import { useSidebar } from "@/lib/sidebar-context";
 import { useI18n } from "@/lib/i18n";
 import { useFonctionnalites } from "@/lib/fonctionnalites";
+import { modulesVisibles } from "@/lib/modules";
 
 interface NavGroup {
   key: string;
@@ -48,36 +49,24 @@ export default function Sidebar() {
 
   const closeMobile = () => setMobileOpen(false);
 
-  const navGroups: NavGroup[] = [
-    {
-      key: "pasteurisation",
-      label: t("nav.pasteurisation"),
-      icon: Thermometer,
-      children: [
-        { href: "/controle", label: t("nav.calculVP") },
-        { href: "/bareme", label: t("nav.aideBareme") },
-      ],
-    },
-    {
-      key: "colorimetrie",
-      label: t("nav.colorimetrie"),
-      icon: Palette,
-      children: [
-        { href: "/colorimetrie/assemblage", label: t("colori.title") },
-      ],
-    },
-    {
-      key: "cuves",
-      label: t("nav.gestionCuves"),
-      icon: Container,
-      children: [
-        // Suivi des cuves, Lots / Produits et Corbeille sont retirés de la
-        // navigation : les pages existent toujours et restent atteignables
-        // par leur URL, mais elles ne sont plus proposées.
-        { href: "/cuves/chai", label: t("nav.chaiVirtuel") },
-      ],
-    },
-  ].filter((groupe) => ouverte(groupe.key));
+  // Les modules sont décrits une seule fois, dans lib/modules.ts, et partagés
+  // avec la page d'accueil. Les deux surfaces en tenaient chacune sa liste et
+  // avaient divergé : des entrées restaient proposées ici à des comptes qui ne
+  // pouvaient pas les ouvrir.
+  const ICONES: Record<string, any> = {
+    pasteurisation: Thermometer,
+    colorimetrie: Palette,
+    cuves: Container,
+  };
+
+  const navGroups: NavGroup[] = modulesVisibles(user?.role, "menu")
+    .filter((m) => ouverte(m.key))
+    .map((m) => ({
+      key: m.key,
+      label: t(m.labelKeyMenu),
+      icon: ICONES[m.key] ?? Container,
+      children: m.sousModules.map((s) => ({ href: s.href, label: t(s.labelKey) })),
+    }));
 
   if (pathname === "/login") return null;
 
