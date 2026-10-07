@@ -83,4 +83,52 @@ class AdresseConnexionTest {
         assertEquals("/", repli(null));
         assertEquals("/", repli(""));
     }
+
+    // ── Retour sur l'origine publique ───────────────────────────────────────
+
+    private static String surEmetteur(String adresse, String emetteur) throws Exception {
+        java.lang.reflect.Method m = ConfigurationFederation.class
+                .getDeclaredMethod("surEmetteur", String.class, String.class);
+        m.setAccessible(true);
+        return (String) m.invoke(null, adresse, emetteur);
+    }
+
+    @Test
+    void l_hote_interne_est_remplace_par_l_emetteur() throws Exception {
+        // Le cas réel : Spring mémorise la demande telle qu'il l'a vue, avec
+        // l'hôte interne. Y renvoyer l'utilisateur lui fait changer de domaine,
+        // son cookie de session ne suit pas, et il est réexpédié au formulaire
+        // qu'il vient de remplir.
+        assertEquals(
+                "https://ifpc.vercel.app/oauth2/authorize?client_id=ciderscope&state=abc",
+                surEmetteur(
+                        "https://interne-xyz.up.railway.app/oauth2/authorize?client_id=ciderscope&state=abc",
+                        "https://ifpc.vercel.app"));
+    }
+
+    @Test
+    void la_requete_est_conservee_intacte() throws Exception {
+        // Les paramètres d'autorisation ne pardonnent pas : perdre « state » ou
+        // « code_challenge » invaliderait le parcours sans message clair.
+        String attendu = "https://ifpc.vercel.app/oauth2/authorize"
+                + "?response_type=code&scope=openid+profile&code_challenge_method=S256";
+        assertEquals(attendu, surEmetteur(
+                "http://interne/oauth2/authorize"
+                        + "?response_type=code&scope=openid+profile&code_challenge_method=S256",
+                "https://ifpc.vercel.app/"));
+    }
+
+    @Test
+    void une_adresse_sans_requete_reste_propre() throws Exception {
+        assertEquals("https://ifpc.vercel.app/federation/documentation",
+                surEmetteur("http://interne/federation/documentation", "https://ifpc.vercel.app"));
+    }
+
+    @Test
+    void sans_emetteur_l_adresse_n_est_pas_touchee() throws Exception {
+        assertEquals("http://interne/oauth2/authorize",
+                surEmetteur("http://interne/oauth2/authorize", ""));
+        assertEquals("http://interne/oauth2/authorize",
+                surEmetteur("http://interne/oauth2/authorize", null));
+    }
 }
