@@ -37,9 +37,9 @@ cd backend/rag_ascocid && ./serve          # écoute sur :8100
 cd frontend && npm run dev                 # /api/ldc/* → LDC_URL (défaut :8100)
 ```
 
-Sans `GEMINI_API_KEY` dans `backend/rag_ascocid/.env`, le service démarre et sert la
-recherche, mais `/api/ldc/ask` répond 503 : la page l'affiche au lieu de proposer un
-chat inerte. Détail des routes : [`docs/07-api-ui.md`](backend/rag_ascocid/docs/07-api-ui.md).
+Sans clé de modèle dans `backend/rag_ascocid/.env` — `ARGO_API_KEY` (INRAE, le défaut)
+ou `GEMINI_API_KEY` à défaut — le service démarre et sert la recherche, mais
+`/api/ldc/ask` répond 503 : la page l'affiche au lieu de proposer un chat inerte. Détail des routes : [`docs/07-api-ui.md`](backend/rag_ascocid/docs/07-api-ui.md).
 
 **En production (Railway)** : service séparé, répertoire racine
 `backend/rag_ascocid`, `Dockerfile` + `railway.toml` fournis. Trois points qui ne

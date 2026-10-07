@@ -78,19 +78,45 @@ const nextConfig = {
         source: '/api/ldc/:path*',
         destination: `${LDC_URL}/api/ldc/:path*`,
       },
-      // Guide d'intégration de la fédération d'identité, servi par le Core API.
-      // Proxifié pour être lisible sur le domaine public de l'application : on
-      // le transmet à des équipes partenaires, leur donner une URL d'infra
-      // serait fragile.
+      // ── Fédération d'identité ────────────────────────────────────────────
       //
-      // Cette page SEULE, et non tout /federation/* : le formulaire de
-      // connexion fédéré dépose un cookie de session, et le parcours OAuth se
-      // poursuit sur l'origine du Core API. Le proxifier déposerait la session
-      // sur le domaine du front, où le point d'autorisation ne la retrouverait
-      // pas — la connexion échouerait sans message clair.
+      // Tout le serveur d'autorisation est relayé sous le domaine public de
+      // l'application, et non la seule page de documentation.
+      //
+      // Une version antérieure ne relayait QUE /federation/documentation, en
+      // redoutant ceci : le formulaire de connexion dépose un cookie de
+      // session, et si le parcours se poursuivait sur l'origine du Core API,
+      // le point d'autorisation ne retrouverait pas cette session. La crainte
+      // était fondée — pour un relais PARTIEL. Elle disparaît avec un relais
+      // complet : cookie, page de connexion, autorisation et jeton se trouvent
+      // alors sur une seule et même origine, celle du front.
+      //
+      // C'est ce qui rend la fédération utilisable en production. OpenID
+      // Connect fait voyager le navigateur : il doit pouvoir joindre lui-même
+      // l'émetteur, lequel doit donc répondre à une adresse publique. Sans ces
+      // règles, l'émetteur ne serait atteignable que sur l'URL interne du Core
+      // API — et le parcours s'interromprait au premier saut.
+      //
+      // FEDERATION_ISSUER doit valoir exactement cette origine publique.
       {
-        source: '/federation/documentation',
-        destination: `${SPRING_URL}/federation/documentation`,
+        source: '/oauth2/:path*',
+        destination: `${SPRING_URL}/oauth2/:path*`,
+      },
+      {
+        source: '/.well-known/:path*',
+        destination: `${SPRING_URL}/.well-known/:path*`,
+      },
+      {
+        source: '/userinfo',
+        destination: `${SPRING_URL}/userinfo`,
+      },
+      {
+        source: '/connect/:path*',
+        destination: `${SPRING_URL}/connect/:path*`,
+      },
+      {
+        source: '/federation/:path*',
+        destination: `${SPRING_URL}/federation/:path*`,
       },
       {
         source: '/api/referentiels/:path*',

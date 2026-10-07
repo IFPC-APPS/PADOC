@@ -101,6 +101,44 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  rag:
+    build:
+      context: ./backend/rag_ascocid
+    container_name: padoc-rag
+    environment:
+      # Fournisseur de modèle. ARGO (INRAE) est le défaut dès que sa clé est
+      # présente : un RAG envoie au modèle les PASSAGES du corpus, pas seulement
+      # la question, et ce choix décide donc où part le Livre de Connaissances.
+      ARGO_API_KEY: ${ARGO_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LDC_FOURNISSEUR: ${LDC_FOURNISSEUR:-}
+      # Identique au service api : les jetons sont émis par Spring Boot et
+      # vérifiés ici. Sans lui, /ask serait ouvert à tous.
+      JWT_SECRET: ${JWT_SECRET:?définir JWT_SECRET dans .env (openssl rand -base64 48)}
+      # Le corpus est fourni par le volume, déjà ingéré. L'amorçage automatique
+      # n'a de sens que sur l'hébergeur sans accès shell : ici il ne ferait que
+      # retarder le démarrage pour constater qu'il n'y a rien à faire.
+      LDC_AMORCAGE: "0"
+      ASCOCID_DATA: /data
+      ASCOCID_SQLITE: /data/ascocid.sqlite
+    volumes:
+      # Monté depuis l'hôte, et non dans un volume nommé : les 341 Mo du corpus
+      # arrivent par rsync, et un répertoire visible se remplit, se sauvegarde
+      # et s'inspecte sans passer par docker.
+      - ${ASCOCID_DONNEES:-./backend/rag_ascocid/data}:/data
+    ports:
+      - "8100:8100"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/api/ldc/sante').status == 200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      # Le premier démarrage télécharge 1,1 Go de poids d'embeddings dans le
+      # volume, puis les charge en mémoire. Une sonde impatiente redémarrerait
+      # le service en boucle sans jamais le laisser finir.
+      start_period: 600s
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -109,6 +147,10 @@ services:
         # dans le build Next.js : modifier ces valeurs impose un rebuild.
         SPRING_URL: http://api:8080
         FASTAPI_URL: http://calc:8000
+        # Sans cette ligne, le build retient « localhost:8100 » — qui, dans le
+        # conteneur du front, désigne le conteneur lui-même : l'assistant
+        # affiche « service injoignable » sans que rien d'autre ne le signale.
+        LDC_URL: http://rag:8100
     container_name: padoc-frontend
     environment:
       # Docker renseigne HOSTNAME avec l'identifiant du conteneur, et le
@@ -124,6 +166,11 @@ services:
       api:
         condition: service_started
       calc:
+        condition: service_started
+      # Démarré, pas sain : le rag met plusieurs minutes à charger ses poids au
+      # premier lancement. Attendre sa santé retarderait tout le front, alors
+      # que la page d'assistant sait déjà annoncer un service indisponible.
+      rag:
         condition: service_started
     healthcheck:
       # 127.0.0.1 et non « localhost » : /etc/hosts du conteneur fait pointer

@@ -136,7 +136,11 @@ Variables à déclarer sur le service :
 
 | Variable | Valeur | Effet si absente |
 |---|---|---|
-| `GEMINI_API_KEY` | clé du projet | `/ask` répond 503, la recherche continue de fonctionner |
+| `ARGO_API_KEY` | clé ARGO (INRAE) | repli sur Gemini si sa clé est là, sinon `/ask` répond 503 et la recherche continue de fonctionner |
+| `GEMINI_API_KEY` | clé du projet | utilisée seulement à défaut d'ARGO |
+| `LDC_FOURNISSEUR` | vide | déduit de la clé présente — ARGO d'abord |
+| `ARGO_MODELE` | `chat-gpt-oss-120b` | repli sur la même valeur |
+| `ARGO_MODELE_ANALYSE` | `chat-gpt-oss-20b` | repli sur la même valeur |
 | `JWT_SECRET` | **identique au Core API** | service ouvert à tous : chaque question devient un appel payant offert |
 | `GEMINI_MODELE` | `gemini-3.8-flash` | **repli sur `gemini-2.5-pro`** : 4× plus cher (1,25/10 $ le million contre 0,30/2,50) et nettement plus lent. Le `.env` local masque ce défaut, il n'est pas dans l'image. |
 | `GEMINI_MODELE_ANALYSE` | `gemini-3.1-flash-lite` | repli sur la même valeur — sans conséquence, mais autant l'expliciter |

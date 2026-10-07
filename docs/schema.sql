@@ -289,6 +289,34 @@ CREATE TABLE cles_signature (
 
 
 -- ---------------------------------------------------------------------------
+-- TABLE : fonctionnalites
+-- ---------------------------------------------------------------------------
+-- Les pans de l'application que l'on peut ouvrir ou fermer sans redéploiement.
+--
+-- Pourquoi en base plutôt qu'en variable d'environnement : une variable impose
+-- un redéploiement, donc une indisponibilité, et son changement ne laisse
+-- aucune trace de qui l'a décidé ni quand. Ici un administrateur agit depuis
+-- son écran, en direct, et la modification est datée et signée.
+--
+-- Le réglage est GLOBAL : il vaut pour tous les comptes non administrateurs.
+-- Les administrateurs continuent de tout voir, faute de quoi ils ne pourraient
+-- ni préparer ni vérifier une fonctionnalité fermée au public.
+--
+-- Le catalogue des clés est déclaré dans le code (ServiceFonctionnalites) : une
+-- fonctionnalité existe parce qu'il y a des écrans et des routes derrière elle.
+-- L'amorçage n'inscrit que les clés absentes — réécrire les lignes existantes
+-- à chaque démarrage rallumerait ce qu'un administrateur vient d'éteindre.
+
+CREATE TABLE fonctionnalites (
+    cle             VARCHAR(64)      PRIMARY KEY,   -- clé du catalogue, connue du front
+    libelle         VARCHAR(160)     NOT NULL,      -- intitulé affiché à l'administrateur
+    description     VARCHAR(500),                   -- ce que la fermeture retire
+    activee         BOOLEAN          NOT NULL,      -- false = retirée au public
+    modifie_le      TIMESTAMP,                      -- NULL = jamais basculée depuis l'amorçage
+    modifie_par     VARCHAR(255)                    -- adresse de l'administrateur auteur
+);
+
+-- ---------------------------------------------------------------------------
 -- TABLES : oauth2_* (Spring Authorization Server)
 -- ---------------------------------------------------------------------------
 -- Ces trois tables ne sont pas des entités JPA : les dépôts JDBC du serveur

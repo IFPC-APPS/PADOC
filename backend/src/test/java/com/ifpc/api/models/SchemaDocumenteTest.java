@@ -140,7 +140,10 @@ class SchemaDocumenteTest {
                         // Les tables oauth2_* n'y figurent pas : elles ne sont
                         // pas des entités JPA, le serveur d'autorisation les
                         // gère en JDBC direct.
-                        "habilitations_plateforme", "cles_signature"),
+                        "habilitations_plateforme", "cles_signature",
+                        // Fonctionnalités ouvertes ou fermées au public, réglées
+                        // depuis l'écran d'administration.
+                        "fonctionnalites"),
                 tables,
                 "une entité a été ajoutée ou retirée : mettre à jour docs/schema.sql et ce test");
     }

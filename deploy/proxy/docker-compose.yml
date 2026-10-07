@@ -1,0 +1,66 @@
+# Reverse proxy de la VM : un seul point d'entrée pour toutes les applications.
+#
+# Compose distinct de celui de PADOC et de celui de CiderScope : le proxy sert
+# les deux, il ne peut appartenir ni à l'un ni à l'autre. Le redémarrer ne doit
+# redémarrer aucune application, et inversement.
+#
+#   docker compose up -d        démarrage
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+#                               rechargement à chaud, sans coupure
+
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ifpc-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3. Inoffensif si le réseau ne laisse pas passer l'UDP.
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificats et clés de compte ACME. Sans ce volume, Caddy en
+      # redemanderait à chaque redémarrage et se ferait limiter par
+      # Let's Encrypt.
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      padoc:
+        # Les noms publics résolus À L'INTÉRIEUR du réseau Docker.
+        #
+        # Sans cela, un appel de serveur à serveur part sur le DNS public —
+        # et « ifpc.eu » porte un enregistrement GÉNÉRIQUE : padoc.ifpc.eu
+        # résout vers le site institutionnel (194.206.126.204), qui répond 404.
+        # CiderScope échouait ainsi sur « Découverte PADOC indisponible », en
+        # interrogeant un serveur étranger au projet.
+        #
+        # OpenID Connect impose que l'émetteur soit annoncé et vérifié sous une
+        # seule et même adresse : on ne peut donc pas donner une URL interne
+        # distincte aux appels de serveur à serveur. Il faut que ce nom-là
+        # désigne le proxy des deux côtés, et c'est ce que fait cet alias.
+        aliases:
+          - padoc.ifpc.eu
+          - ciderscope.ifpc.eu
+
+volumes:
+  caddy_data:
+  caddy_config:
+  caddy_logs:
+
+networks:
+  # Réseau créé par le compose de PADOC. CiderScope y est également rattaché :
+  # c'est par lui que le proxy atteint les deux applications, par leur nom de
+  # conteneur et sans qu'aucun port n'ait besoin d'être publié sur l'hôte.
+  padoc:
+    external: true
+    name: padoc_default
