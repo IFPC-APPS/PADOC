@@ -1,6 +1,7 @@
 package com.ifpc.api.security.federation;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -31,6 +32,20 @@ public class PageConnexionFederation {
 
     private final RequestCache demandesMemorisees = new HttpSessionRequestCache();
 
+    /**
+     * Où aller quand il n'y a rien à reprendre.
+     *
+     * <p>La racine de l'émetteur, c'est-à-dire l'application elle-même. « / »
+     * désignerait la racine du serveur d'API, qui ne sert aucune page et
+     * répond 403 — une impasse pour quelqu'un qui vient de se connecter.</p>
+     */
+    @Value("${federation.issuer:}")
+    private String emetteur;
+
+    private String repli() {
+        return (emetteur == null || emetteur.isBlank()) ? "/" : emetteur.replaceAll("/+$", "") + "/";
+    }
+
     private static org.springframework.http.HttpHeaders entetesVers(String adresse) {
         org.springframework.http.HttpHeaders entetes = new org.springframework.http.HttpHeaders();
         entetes.add(org.springframework.http.HttpHeaders.LOCATION, adresse);
@@ -57,8 +72,22 @@ public class PageConnexionFederation {
         if (!connecte) {
             return null;
         }
+
         SavedRequest memorisee = demandesMemorisees.getRequest(requete, reponse);
-        return memorisee != null ? memorisee.getRedirectUrl() : "/";
+        // CONSOMMÉE, et pas seulement lue. Sans ce retrait, chaque passage sur
+        // cette page renvoyait vers la même demande ; si celle-ci ramenait ici
+        // pour une raison quelconque — demande périmée, code déjà délivré — le
+        // navigateur rebondissait indéfiniment entre les deux, et rien ne
+        // cassait jamais le cycle. ERR_TOO_MANY_REDIRECTS.
+        demandesMemorisees.removeRequest(requete, reponse);
+
+        String suite = memorisee != null ? memorisee.getRedirectUrl() : null;
+        // Et jamais vers cette page : une demande mémorisée qui pointerait ici
+        // formerait une boucle à elle seule.
+        if (suite == null || suite.contains(ConfigurationFederation.CHEMIN_CONNEXION)) {
+            return repli();
+        }
+        return suite;
     }
 
     @GetMapping(value = ConfigurationFederation.CHEMIN_CONNEXION, produces = MediaType.TEXT_HTML_VALUE)
