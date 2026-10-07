@@ -60,12 +60,40 @@ public class ConfigurationFederation {
 
     public static final String CHEMIN_CONNEXION = "/federation/connexion";
 
+    /**
+     * Adresse vers laquelle renvoyer un visiteur non authentifié.
+     *
+     * <p>Absolue, et construite sur l'émetteur, quand celui-ci est déclaré.
+     * C'est indispensable dès que le serveur est servi derrière un relais qui
+     * réécrit l'hôte — le cas d'un hébergement où une adresse publique relaie
+     * vers un hôte interne.</p>
+     *
+     * <p>Avec un chemin relatif, le conteneur fabrique la redirection à partir
+     * de l'hôte qu'il voit, c'est-à-dire l'hôte INTERNE. Le navigateur change
+     * alors de domaine en cours de parcours, et comme le cookie de session a
+     * été posé sur le domaine public, il ne le suit pas : le serveur ouvre une
+     * session neuve, où la demande d'autorisation mémorisée n'existe pas. La
+     * connexion réussit, puis l'utilisateur est renvoyé sur « / » — sans la
+     * moindre indication de ce qui s'est passé.</p>
+     *
+     * <p>Les en-têtes de relais ne suffisent pas à rattraper cela quand deux
+     * relais se succèdent : le second réécrit {@code X-Forwarded-Host} avec le
+     * sien, et l'adresse publique est définitivement perdue.</p>
+     */
+    private static String adresseConnexion(String emetteur) {
+        if (emetteur == null || emetteur.isBlank()) {
+            return CHEMIN_CONNEXION;
+        }
+        return emetteur.replaceAll("/+$", "") + CHEMIN_CONNEXION;
+    }
+
     @Bean
     @Order(1)
     public SecurityFilterChain chaineServeurAutorisation(
             HttpSecurity http,
             HabilitationPlateformeRepository habilitations,
-            AuthorizationServerSettings reglages
+            AuthorizationServerSettings reglages,
+            @Value("${federation.issuer:}") String emetteur
     ) throws Exception {
 
         OAuth2AuthorizationServerConfigurer configurateur =
@@ -99,7 +127,7 @@ public class ConfigurationFederation {
                 // doit voir le formulaire de connexion, pas un 401 nu.
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
-                                new LoginUrlAuthenticationEntryPoint(CHEMIN_CONNEXION),
+                                new LoginUrlAuthenticationEntryPoint(adresseConnexion(emetteur)),
                                 new MediaTypeRequestMatcher(MediaType.TEXT_HTML)))
                 // /userinfo s'authentifie par jeton d'accès, pas par session.
                 .oauth2ResourceServer(serveur -> serveur.jwt(Customizer.withDefaults()))
@@ -124,7 +152,9 @@ public class ConfigurationFederation {
      */
     @Bean
     @Order(2)
-    public SecurityFilterChain chaineConnexionFederation(HttpSecurity http) throws Exception {
+    public SecurityFilterChain chaineConnexionFederation(
+            HttpSecurity http,
+            @Value("${federation.issuer:}") String emetteur) throws Exception {
         http
                 .securityMatcher("/federation/**")
                 // Même raison : un formulaire de connexion est une navigation,
@@ -139,12 +169,15 @@ public class ConfigurationFederation {
                         .requestMatchers(CHEMIN_CONNEXION, DocumentationFederation.CHEMIN).permitAll()
                         .anyRequest().authenticated())
                 .formLogin(formulaire -> formulaire
-                        .loginPage(CHEMIN_CONNEXION)
+                        // Page absolue, traitement relatif : le formulaire est
+                        // servi sous l'adresse publique, et son envoi part vers
+                        // la même origine — donc avec le bon cookie de session.
+                        .loginPage(adresseConnexion(emetteur))
                         .loginProcessingUrl(CHEMIN_CONNEXION)
-                        .failureUrl(CHEMIN_CONNEXION + "?erreur"))
+                        .failureUrl(adresseConnexion(emetteur) + "?erreur"))
                 .logout(deconnexion -> deconnexion
                         .logoutUrl("/federation/deconnexion")
-                        .logoutSuccessUrl(CHEMIN_CONNEXION + "?deconnecte"));
+                        .logoutSuccessUrl(adresseConnexion(emetteur) + "?deconnecte"));
         return http.build();
     }
 
