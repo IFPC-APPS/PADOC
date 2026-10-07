@@ -1,6 +1,13 @@
 package com.ifpc.api.security.federation;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.SavedRequest;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,12 +29,56 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class PageConnexionFederation {
 
+    private final RequestCache demandesMemorisees = new HttpSessionRequestCache();
+
+    private static org.springframework.http.HttpHeaders entetesVers(String adresse) {
+        org.springframework.http.HttpHeaders entetes = new org.springframework.http.HttpHeaders();
+        entetes.add(org.springframework.http.HttpHeaders.LOCATION, adresse);
+        return entetes;
+    }
+
+    /**
+     * Qui est déjà connecté n'a rien à faire ici.
+     *
+     * <p>Spring ne traite pas ce cas pour une page de connexion fournie par
+     * l'application : il la sert telle quelle, même à une session authentifiée.
+     * L'utilisateur voyait alors un formulaire qu'il venait de remplir avec
+     * succès, sans message ni explication — et le remplissait de nouveau, avec
+     * le même résultat.</p>
+     *
+     * <p>On reprend donc la demande d'autorisation mémorisée, ce qui est la
+     * suite naturelle du parcours. À défaut, on renvoie à la racine de
+     * l'émetteur plutôt que de réafficher le formulaire.</p>
+     */
+    private String reprendreLeParcours(HttpServletRequest requete, HttpServletResponse reponse) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean connecte = auth != null && auth.isAuthenticated()
+                && !"anonymousUser".equals(auth.getPrincipal());
+        if (!connecte) {
+            return null;
+        }
+        SavedRequest memorisee = demandesMemorisees.getRequest(requete, reponse);
+        return memorisee != null ? memorisee.getRedirectUrl() : "/";
+    }
+
     @GetMapping(value = ConfigurationFederation.CHEMIN_CONNEXION, produces = MediaType.TEXT_HTML_VALUE)
     @ResponseBody
-    public String afficher(
+    public Object afficher(
             CsrfToken jetonCsrf,
+            HttpServletRequest requete,
+            HttpServletResponse reponse,
             @RequestParam(name = "erreur", required = false) String erreur,
             @RequestParam(name = "deconnecte", required = false) String deconnecte) {
+
+        // « deconnecte » excepté : on vient précisément de fermer la session,
+        // et la reprise n'aurait aucun sens.
+        if (deconnecte == null) {
+            String suite = reprendreLeParcours(requete, reponse);
+            if (suite != null) {
+                return new org.springframework.http.ResponseEntity<Void>(
+                        entetesVers(suite), org.springframework.http.HttpStatus.FOUND);
+            }
+        }
 
         String banniere = "";
         if (erreur != null) {
