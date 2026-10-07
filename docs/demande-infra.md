@@ -41,8 +41,23 @@ Afin que la demande soit précise, voici l'état constaté sur la machine :
 | Écoute des services | `0.0.0.0` sur les ports concernés |
 | Accès depuis Internet, port 22 | **passe** |
 | Accès depuis Internet, ports 80 / 443 | **ne passe pas** |
+| Accès **depuis le réseau de l'établissement**, ports 80 / 443 | **ne passe pas non plus** |
 
 Rien ne bloque sur la machine : le filtrage se situe en amont, dans le réseau.
+
+Ce dernier point mérite d'être souligné : la machine est injoignable sur tout
+port de service **y compris depuis un poste interne**. Mesuré depuis un poste
+de l'établissement : seul le 22 répond, les ports 80, 443, 3000 et 8080 sont
+tous bloqués. Il ne s'agit donc pas d'une protection du périmètre vis-à-vis
+d'Internet, mais d'une règle qui rend la VM inutilisable comme serveur
+applicatif, même pour un usage strictement interne.
+
+> **Le port 22 ne peut pas servir de substitut.** Il est occupé par SSH, seul
+> moyen d'administrer la machine. Et les navigateurs refusent les connexions
+> HTTP vers le port 22 — il figure dans leur liste de ports interdits
+> (`ERR_UNSAFE_PORT`), afin qu'une page web ne puisse pas s'adresser à un
+> service d'un autre protocole. C'est une décision des navigateurs, qu'aucune
+> autorisation réseau ne peut lever.
 
 **Accès sortant** : nous avons également vérifié qu'il fonctionne (dépôts de
 paquets, registre d'images, services applicatifs externes). Aucune demande de
