@@ -1,4 +1,4 @@
-import { MODULES, cheminsAdministrateur, modulesVisibles } from "@/lib/modules";
+import { MODULES, cheminsAdministrateur, fonctionnaliteDuChemin, modulesVisibles } from "@/lib/modules";
 
 /**
  * La page d'accueil et la barre latérale lisent la même liste. Ces tests
@@ -70,5 +70,33 @@ describe("déclaration des modules", () => {
   it("aucune destination n'est déclarée deux fois", () => {
     const tous = MODULES.flatMap((m) => m.sousModules.map((s) => s.href));
     expect(new Set(tous).size).toBe(tous.length);
+  });
+});
+
+describe("fonctionnalité d'une adresse", () => {
+  it("rattache les destinations des modules", () => {
+    expect(fonctionnaliteDuChemin("/controle")).toBe("pasteurisation");
+    expect(fonctionnaliteDuChemin("/bareme")).toBe("pasteurisation");
+    expect(fonctionnaliteDuChemin("/colorimetrie/assemblage")).toBe("colorimetrie");
+    expect(fonctionnaliteDuChemin("/cuves/chai")).toBe("cuves");
+  });
+
+  it("rattache aussi ce qui n'a pas de module sur l'accueil", () => {
+    // La section « Reprendre » pointe droit vers ces écrans : sans eux, fermer
+    // l'historique le retirait du menu mais le laissait atteignable d'un clic.
+    expect(fonctionnaliteDuChemin("/historique")).toBe("historique");
+    expect(fonctionnaliteDuChemin("/assistant")).toBe("assistant");
+  });
+
+  it("ne capture pas une adresse au nom voisin", () => {
+    expect(fonctionnaliteDuChemin("/cuvesphere")).toBeNull();
+    expect(fonctionnaliteDuChemin("/historiquement")).toBeNull();
+  });
+
+  it("laisse passer ce qui ne dépend d'aucune fonctionnalité", () => {
+    // Fermer l'administration ou le profil enfermerait tout le monde dehors.
+    for (const chemin of ["/", "/profil", "/login", "/admin", "/expert"]) {
+      expect(fonctionnaliteDuChemin(chemin)).toBeNull();
+    }
   });
 });

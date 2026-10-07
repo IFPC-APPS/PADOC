@@ -14,7 +14,7 @@ import {
 } from "@/components/icones";
 import { getHistory, type HistoryEntry } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { modulesVisibles } from "@/lib/modules";
+import { useNavigation } from "@/lib/fonctionnalites";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -262,7 +262,11 @@ export default function Home() {
     administration: "text-gray-500",
   };
 
-  const modules: Module[] = modulesVisibles(user?.role, "accueil").map((m) => ({
+  // Rôle ET fonctionnalités, par la même règle que la barre latérale : un pan
+  // fermé par un administrateur disparaissait du menu mais restait proposé ici.
+  const { modules: declares, cheminOuvert } = useNavigation(user?.role, "accueil");
+
+  const modules: Module[] = declares.map((m) => ({
     key: m.key,
     label: t(m.labelKeyAccueil),
     couleur: COULEURS[m.key] ?? "text-gray-500",
@@ -327,6 +331,13 @@ export default function Home() {
   // rouvrirait la porte à deux règles qui se contredisent.
   const visibleModules = modules;
 
+  // « Reprendre » pointe droit vers des écrans, hors de toute liste de modules.
+  // Sans ce filtre, un pan fermé restait atteignable d'un clic depuis les
+  // activités récentes — et l'historique lui-même pouvait être fermé.
+  const activitesProposables = cheminOuvert("/historique")
+    ? activities.filter((a) => cheminOuvert(CIBLES[a.type] ?? "/historique"))
+    : [];
+
   return (
     <div className="min-h-screen bg-[#fafaf8] text-gray-950 px-4 sm:px-8 py-6 sm:py-10 relative overflow-hidden">
       {/* Soft background gradient & blobs matching the login aesthetic */}
@@ -367,7 +378,7 @@ export default function Home() {
 
         {/* Reprendre — aperçu compact ; le détail, le regroupement et le tri
             vivent sur /historique, qui est fait pour ça. */}
-        {activities.length > 0 && (
+        {activitesProposables.length > 0 && (
           <section>
             <div className="mb-2 flex items-baseline justify-between">
               <h2 className="text-[11px] font-medium text-gray-400">{t("home.resume")}</h2>
@@ -380,7 +391,7 @@ export default function Home() {
             </div>
             <ul className="divide-y divide-gray-50 overflow-hidden rounded-xl border
               border-gray-100 bg-white">
-              {activities.slice(0, 3).map((a) => (
+              {activitesProposables.slice(0, 3).map((a) => (
                 <li key={a.id}>
                   <Link
                     href={CIBLES[a.type] ?? "/historique"}
