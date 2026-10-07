@@ -29,10 +29,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Les cuves y figuraient tant qu'elles étaient partagées : désormais
         // elles appartiennent à un locataire et doivent porter un principal,
         // sans quoi le contrôleur ne saurait pas à qui répondre.
+        //
+        // /api/config n'y figure PLUS. Ces routes restent ouvertes — c'est la
+        // chaîne de sécurité qui en décide, pas ce filtre — mais certaines ont
+        // besoin de savoir QUI demande : l'état des fonctionnalités répond tout
+        // ouvert à un administrateur, et le reste du public ne doit pas en
+        // profiter. Écarté d'ici, le filtre ne s'exécutait pas, le contexte
+        // restait anonyme, et tout administrateur subissait les fermetures
+        // qu'il venait lui-même de décider.
+        //
+        // Sans risque pour les routes réellement anonymes : sans en-tête
+        // « Authorization », le filtre passe la main sans rien faire, et un
+        // jeton invalide se solde par un contexte vide, pas par un refus.
         String path = request.getServletPath();
 
-        return path.startsWith("/api/config/")
-                || path.startsWith("/api/deploy/");
+        return path.startsWith("/api/deploy/");
     }
 
     @Override

@@ -39,11 +39,26 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    @DisplayName("shouldNotFilter returns true for public paths only")
+    @DisplayName("shouldNotFilter : seule la sonde de déploiement échappe au filtre")
     void testShouldNotFilter() {
+        // /api/config reste une route OUVERTE — la chaîne de sécurité en
+        // décide — mais elle passe désormais par le filtre, car certaines de
+        // ses réponses dépendent de QUI demande. L'état des fonctionnalités
+        // répond tout ouvert à un administrateur ; écartée du filtre, la route
+        // ne voyait que des anonymes, et l'administrateur subissait les
+        // fermetures qu'il venait lui-même de décider.
+        //
+        // Sans risque pour un appel anonyme : sans en-tête « Authorization »,
+        // le filtre passe la main sans rien faire, et un jeton invalide se
+        // solde par un contexte vide plutôt que par un refus.
         when(request.getServletPath()).thenReturn("/api/config/products");
-        assertTrue(filter.shouldNotFilter(request));
+        assertFalse(filter.shouldNotFilter(request));
 
+        when(request.getServletPath()).thenReturn("/api/config/fonctionnalites");
+        assertFalse(filter.shouldNotFilter(request));
+
+        // Sonde de supervision : interrogée sans jeton, et sans intérêt à
+        // connaître l'appelant.
         when(request.getServletPath()).thenReturn("/api/deploy/info");
         assertTrue(filter.shouldNotFilter(request));
 
