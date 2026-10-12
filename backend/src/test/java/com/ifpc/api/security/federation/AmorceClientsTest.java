@@ -176,6 +176,14 @@ class AmorceClientsTest {
     }
 
     @Test
+    @DisplayName("sans URI de déconnexion déclarée, l'accueil de la plateforme est accepté")
+    void retourDeconnexionParDefaut() {
+        amorce("analyse", "", "https://exemple.fr/api/auth/ifpc/callback").amorcer();
+
+        assertEquals(java.util.Set.of("https://exemple.fr/"), enregistre().getPostLogoutRedirectUris());
+    }
+
+    @Test
     @DisplayName("les durées de vie sont celles de la spécification, avec rotation du rafraîchissement")
     void dureesDeVieEtRotation() {
         amorce("analyse", "", "https://exemple.fr/cb").amorcer();

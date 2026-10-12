@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.server.authorization.settings.ClientS
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -145,7 +146,7 @@ public class AmorceClients {
         // détourner la redirection vers un domaine tenu par un attaquant, avec
         // un code d'autorisation valide (spec §7.3).
         redirections.forEach(client::redirectUri);
-        decouper(postLogoutUris).forEach(client::postLogoutRedirectUri);
+        retoursDeconnexion(redirections).forEach(client::postLogoutRedirectUri);
 
         if (confidentiel) {
             client.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
@@ -161,6 +162,25 @@ public class AmorceClients {
         log.info("Fédération : client « {} » {} ({}), {} URI de redirection.",
                 clientId, existant != null ? "mis à jour" : "enregistré",
                 confidentiel ? "confidentiel" : "public", redirections.size());
+    }
+
+    /**
+     * Les adresses où PADOC peut renvoyer après déconnexion.
+     *
+     * <p>Sans configuration, l'accueil de chaque origine déclarée en
+     * redirection : c'est la même plateforme, déjà approuvée. Sans ce repli,
+     * une variable oubliée suffisait à rendre la déconnexion impossible —
+     * PADOC refuse une adresse de retour qu'il ne connaît pas.</p>
+     */
+    private List<String> retoursDeconnexion(List<String> redirections) {
+        List<String> declares = decouper(postLogoutUris);
+        if (!declares.isEmpty()) {
+            return declares;
+        }
+        return redirections.stream()
+                .map(uri -> URI.create(uri).resolve("/").toString())
+                .distinct()
+                .toList();
     }
 
     private static List<String> decouper(String valeur) {
