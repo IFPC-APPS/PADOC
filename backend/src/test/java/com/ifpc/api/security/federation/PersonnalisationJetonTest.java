@@ -138,6 +138,20 @@ class PersonnalisationJetonTest {
     }
 
     @Test
+    @DisplayName("une liste de rôles d'administrateur vide retombe sur « animateur »")
+    void rolesAdminVidesRetombentSurLeDefaut() {
+        User u = utilisateur();
+        u.setRole(Role.ADMIN);
+        when(utilisateurs.findByEmail(u.getEmail())).thenReturn(Optional.of(u));
+        when(habilitations.findByUtilisateurIdAndClientId(7L, "ciderscope")).thenReturn(Optional.empty());
+
+        JwtEncodingContext ctx = contexte(u, "ciderscope", new OAuth2TokenType("id_token"), Set.of("openid"));
+        new PersonnalisationJeton(utilisateurs, habilitations, "ciderscope", " ").customize(ctx);
+
+        assertEquals(Set.of("animateur"), ctx.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
+    }
+
+    @Test
     @DisplayName("les rôles d'administrateur ne valent que pour la plateforme déclarée, et que pour un ADMIN")
     void rolesAdminCirconscrits() {
         User admin = utilisateur();

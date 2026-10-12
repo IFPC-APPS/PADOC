@@ -52,6 +52,9 @@ public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingC
     public static final String CLAIM_ROLES = "https://ifpc.eu/claims/roles";
     public static final String CLAIM_ORGANISATION = "https://ifpc.eu/claims/organisation";
 
+    /** Rôle qui ouvre l'administration de CiderScope, la plateforme déclarée. */
+    static final String ROLES_ADMIN_DEFAUT = "animateur";
+
     private final UserRepository utilisateurs;
     private final HabilitationPlateformeRepository habilitations;
     private final String clientDeclare;
@@ -67,7 +70,11 @@ public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingC
         this.utilisateurs = utilisateurs;
         this.habilitations = habilitations;
         this.clientDeclare = clientDeclare;
-        this.rolesAdmin = rolesAdmin == null ? Set.of() : Arrays.stream(rolesAdmin.split(","))
+        // Vide vaut défaut : une variable d'environnement présente mais vide
+        // (Railway) l'emporte sur le défaut du YAML, et laissait les
+        // administrateurs sans aucun rôle sur la plateforme.
+        String declares = rolesAdmin == null || rolesAdmin.isBlank() ? ROLES_ADMIN_DEFAUT : rolesAdmin;
+        this.rolesAdmin = Arrays.stream(declares.split(","))
                 .map(String::trim)
                 .filter(r -> !r.isEmpty())
                 .collect(Collectors.toCollection(LinkedHashSet::new));

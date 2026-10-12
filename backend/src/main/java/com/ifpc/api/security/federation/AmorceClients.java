@@ -102,13 +102,17 @@ public class AmorceClients {
                     + "exacte, il n'y a pas de parcours possible.", clientId);
             return;
         }
-        if (clients.findByClientId(clientId) != null) {
-            return;
-        }
+        // Un client déjà enregistré est réaligné sur la configuration, en
+        // gardant son identifiant interne : autorisations et consentements en
+        // cours y sont rattachés. Sans cela, la première version enregistrée
+        // restait figée en base, et aucun changement de réglage — URI,
+        // consentement — ne prenait effet sans purge manuelle.
+        RegisteredClient existant = clients.findByClientId(clientId);
+        String idInterne = existant != null ? existant.getId() : UUID.randomUUID().toString();
 
         boolean confidentiel = clientSecret != null && !clientSecret.isBlank();
 
-        RegisteredClient.Builder client = RegisteredClient.withId(UUID.randomUUID().toString())
+        RegisteredClient.Builder client = RegisteredClient.withId(idInterne)
                 .clientId(clientId)
                 .clientName(clientNom)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
@@ -122,7 +126,10 @@ public class AmorceClients {
                         // intercepté dans un journal, un historique ou un
                         // en-tête Referer est inutilisable (spec §6.3).
                         .requireProofKey(true)
-                        .requireAuthorizationConsent(true)
+                        // Pas d'écran de consentement : la plateforme déclarée
+                        // est un outil de la filière, pas un tiers. Le compte
+                        // PADOC suffit pour y entrer, comme pour PADOC lui-même.
+                        .requireAuthorizationConsent(false)
                         .build())
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenTimeToLive(VIE_JETON_ACCES)
@@ -151,8 +158,9 @@ public class AmorceClients {
         }
 
         clients.save(client.build());
-        log.info("Fédération : client « {} » enregistré ({}), {} URI de redirection.",
-                clientId, confidentiel ? "confidentiel" : "public", redirections.size());
+        log.info("Fédération : client « {} » {} ({}), {} URI de redirection.",
+                clientId, existant != null ? "mis à jour" : "enregistré",
+                confidentiel ? "confidentiel" : "public", redirections.size());
     }
 
     private static List<String> decouper(String valeur) {
