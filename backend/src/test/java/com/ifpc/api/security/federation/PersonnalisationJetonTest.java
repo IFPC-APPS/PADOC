@@ -138,7 +138,7 @@ class PersonnalisationJetonTest {
     }
 
     @Test
-    @DisplayName("une liste de rôles d'administrateur vide retombe sur « animateur »")
+    @DisplayName("une liste de rôles d'administrateur vide retombe sur l'administration complète")
     void rolesAdminVidesRetombentSurLeDefaut() {
         User u = utilisateur();
         u.setRole(Role.ADMIN);
@@ -148,7 +148,8 @@ class PersonnalisationJetonTest {
         JwtEncodingContext ctx = contexte(u, "ciderscope", new OAuth2TokenType("id_token"), Set.of("openid"));
         new PersonnalisationJeton(utilisateurs, habilitations, "ciderscope", " ").customize(ctx);
 
-        assertEquals(Set.of("animateur"), ctx.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
+        assertEquals(Set.of("animateur", "creneaux"),
+                ctx.getClaims().build().getClaim(PersonnalisationJeton.CLAIM_ROLES));
     }
 
     @Test

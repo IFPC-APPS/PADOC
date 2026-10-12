@@ -124,6 +124,7 @@ public class ConfigurationFederation {
     public SecurityFilterChain chaineServeurAutorisation(
             HttpSecurity http,
             AuthorizationServerSettings reglages,
+            RegisteredClientRepository clients,
             @Value("${federation.issuer:}") String emetteur
     ) throws Exception {
 
@@ -137,7 +138,12 @@ public class ConfigurationFederation {
                 // initiée par la plateforme cliente. Sans lui, on n'aurait
                 // qu'OAuth2 : la plateforme devrait alors coder en dur chaque
                 // URL au lieu de lire le document de découverte (spec §6.1).
-                .with(configurateur, serveur -> serveur.oidc(Customizer.withDefaults()))
+                .with(configurateur, serveur -> serveur.oidc(oidc -> oidc
+                        // Une déconnexion refusée ferme quand même la session :
+                        // sans cela, impossible de changer de compte.
+                        .logoutEndpoint(deconnexion -> deconnexion
+                                .errorResponseHandler(new DeconnexionTolerante(
+                                        clients, adresseConnexion(emetteur))))))
                 .authorizeHttpRequests(requetes -> requetes.anyRequest().authenticated())
                 // Ces points d'entrée sont appelés par des machines avec un
                 // jeton ou un code à usage unique, jamais depuis un formulaire

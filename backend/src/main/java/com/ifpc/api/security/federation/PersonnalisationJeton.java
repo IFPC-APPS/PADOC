@@ -52,8 +52,13 @@ public class PersonnalisationJeton implements OAuth2TokenCustomizer<JwtEncodingC
     public static final String CLAIM_ROLES = "https://ifpc.eu/claims/roles";
     public static final String CLAIM_ORGANISATION = "https://ifpc.eu/claims/organisation";
 
-    /** Rôle qui ouvre l'administration de CiderScope, la plateforme déclarée. */
-    static final String ROLES_ADMIN_DEFAUT = "animateur";
+    /**
+     * Ce qui fait un administrateur complet de CiderScope, la plateforme
+     * déclarée : « animateur » ouvre l'administration, « creneaux » la
+     * planification. Sans ce dernier, un administrateur créait des séances
+     * sans pouvoir les dater, donc jamais visibles des jurys.
+     */
+    static final String ROLES_ADMIN_DEFAUT = "animateur,creneaux";
 
     private final UserRepository utilisateurs;
     private final HabilitationPlateformeRepository habilitations;
