@@ -104,18 +104,24 @@ class AmorceClientsTest {
     }
 
     @Test
-    @DisplayName("un client déjà enregistré n'est pas réécrit")
-    void clientExistantPreserve() {
+    @DisplayName("un client déjà enregistré est réaligné sur la configuration, sous le même identifiant")
+    void clientExistantRealigne() {
         when(clients.findByClientId("analyse")).thenReturn(
                 RegisteredClient.withId("x").clientId("analyse")
                         .authorizationGrantType(
                                 org.springframework.security.oauth2.core.AuthorizationGrantType.AUTHORIZATION_CODE)
-                        .redirectUri("https://exemple.fr/cb")
+                        .redirectUri("https://ancien.exemple.fr/cb")
+                        .clientSettings(org.springframework.security.oauth2.server.authorization.settings
+                                .ClientSettings.builder().requireAuthorizationConsent(true).build())
                         .build());
 
         amorce("analyse", "", "https://exemple.fr/cb").amorcer();
 
-        verify(clients, never()).save(any());
+        RegisteredClient client = enregistre();
+        assertEquals("x", client.getId(),
+                "changer d'identifiant interne orphelinerait autorisations et consentements");
+        assertEquals(java.util.Set.of("https://exemple.fr/cb"), client.getRedirectUris());
+        assertFalse(client.getClientSettings().isRequireAuthorizationConsent());
     }
 
     @Test
@@ -144,8 +150,8 @@ class AmorceClientsTest {
     }
 
     @Test
-    @DisplayName("PKCE et consentement sont exigés, y compris d'un client confidentiel")
-    void pkceEtConsentementExiges() {
+    @DisplayName("PKCE est exigé, y compris d'un client confidentiel ; le consentement ne l'est pas")
+    void pkceExigeSansConsentement() {
         when(encodeur.encode(anyString())).thenReturn("hache");
 
         amorce("analyse", "tres-secret", "https://exemple.fr/cb").amorcer();
@@ -153,7 +159,8 @@ class AmorceClientsTest {
         RegisteredClient client = enregistre();
         assertTrue(client.getClientSettings().isRequireProofKey(),
                 "PKCE lie le code à la session qui l'a demandé : un code intercepté reste inutilisable");
-        assertTrue(client.getClientSettings().isRequireAuthorizationConsent());
+        assertFalse(client.getClientSettings().isRequireAuthorizationConsent(),
+                "la plateforme est un outil de la filière : aucun écran d'approbation");
     }
 
     @Test
@@ -166,6 +173,14 @@ class AmorceClientsTest {
         assertTrue(client.getRedirectUris().contains("https://a.exemple.fr/cb"));
         assertTrue(client.getRedirectUris().contains("https://b.exemple.fr/cb"));
         assertTrue(client.getRedirectUris().stream().noneMatch(u -> u.contains("*")));
+    }
+
+    @Test
+    @DisplayName("sans URI de déconnexion déclarée, l'accueil de la plateforme est accepté")
+    void retourDeconnexionParDefaut() {
+        amorce("analyse", "", "https://exemple.fr/api/auth/ifpc/callback").amorcer();
+
+        assertEquals(java.util.Set.of("https://exemple.fr/"), enregistre().getPostLogoutRedirectUris());
     }
 
     @Test

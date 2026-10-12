@@ -184,8 +184,6 @@ public class DocumentationFederation {
                   <code>code_challenge</code>.</li>
               <li>Il s'authentifie chez IFPC — son mot de passe ne transite jamais par
                   vous.</li>
-              <li>Il accorde son consentement (une seule fois&nbsp;: nous le
-                  mémorisons).</li>
               <li>Nous le renvoyons sur votre <code>redirect_uri</code> avec un
                   <code>code</code> à usage unique, valable une minute.</li>
               <li>Vous échangez ce code contre les jetons, en fournissant le
@@ -225,8 +223,8 @@ public class DocumentationFederation {
               Un jeton de rafraîchissement stocké dans un navigateur est un secret de longue
               durée exposé au moindre XSS&nbsp;: nous n'en émettons pas.</p>
               <p>Pour renouveler l'accès, repassez silencieusement par le point
-              d'autorisation&nbsp;: la session IFPC de l'utilisateur est encore ouverte et son
-              consentement déjà accordé, la redirection est donc invisible pour lui. Les
+              d'autorisation&nbsp;: la session IFPC de l'utilisateur est encore ouverte et aucun
+              consentement n'est demandé, la redirection est donc invisible pour lui. Les
               bibliothèques OIDC courantes savent le faire. <strong>Si vous voulez un
               <code>refresh_token</code>, il vous faut un backend</strong> — donc être un
               client confidentiel.</p>
